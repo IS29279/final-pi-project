@@ -7,7 +7,7 @@
 
 ```
 final-pi-project/
-├── app.py              # Flask application factory and routes
+├── FinalApp.py         # Flask application factory and routes
 ├── models.py           # SQLAlchemy database models
 ├── orchestrator.py     # Nmap + tshark orchestration layer
 ├── requirements.txt
@@ -45,7 +45,7 @@ pip install -r requirements.txt
 
 ```bash
 source venv/bin/activate
-python app.py
+python FinalApp.py
 ```
 
 The app will be available at `http://<pi-ip>:5000` from any device on the same network.
@@ -64,7 +64,7 @@ python orchestrator.py --target 192.168.1.0/24 --duration 30 --interface wlan0
 ### Sprint 2 Demo Checklist
 
 - [ ] Pi accessible over SSH
-- [ ] `python app.py` starts without errors
+- [ ] `python FinalApp.py` starts without errors
 - [ ] Dashboard loads at `http://<pi-ip>:5000`
 - [ ] `final-pi-project.db` exists and tables are visible (`sqlite3 instance/final-pi-project.db .tables`  — run from inside `final-pi-project/`)
 - [ ] Submitting the scan form creates a Scan record
