@@ -1,4 +1,4 @@
-# Pi Intrusion Testing Appliance (PITA)
+# Network Lock Security
 ## ITP 258 — Team 3 — Sprint 2
 
 ---
