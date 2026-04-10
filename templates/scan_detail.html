@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PITA — Scan #{{ scan.id }}</title>
+  <title>Network Lock Security — Scan #{{ scan['id'] }}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Courier New', monospace; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
@@ -18,9 +18,9 @@
     .meta-item label { display: block; font-size: 0.72rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.25rem; }
     .meta-item span { font-size: 0.95rem; color: #e6edf3; }
     .badge { display: inline-block; border-radius: 3px; font-size: 0.72rem; padding: 0.15rem 0.5rem; font-weight: 600; }
-    .badge-running  { background: #1f4d7a; color: #79c0ff; }
-    .badge-complete { background: #1a3a2a; color: #56d364; }
-    .badge-failed   { background: #4a1a1a; color: #f85149; }
+    .badge-running   { background: #1f4d7a; color: #79c0ff; }
+    .badge-completed { background: #1a3a2a; color: #56d364; }
+    .badge-failed    { background: #4a1a1a; color: #f85149; }
     .host-block { border: 1px solid #21262d; border-radius: 4px; margin-bottom: 0.75rem; overflow: hidden; }
     .host-header { background: #1c2128; padding: 0.6rem 1rem; font-size: 0.9rem; color: #e6edf3; }
     .host-header small { color: #8b949e; font-size: 0.78rem; margin-left: 0.5rem; }
@@ -28,9 +28,6 @@
     th { text-align: left; padding: 0.4rem 1rem; font-size: 0.72rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #30363d; background: #161b22; }
     td { padding: 0.45rem 1rem; border-bottom: 1px solid #21262d; }
     tr:last-child td { border-bottom: none; }
-    .sev-critical { color: #f85149; }
-    .sev-warning  { color: #d29922; }
-    .sev-info     { color: #8b949e; }
     .empty { color: #8b949e; font-size: 0.85rem; padding: 1rem; }
     a { color: #58a6ff; text-decoration: none; }
     a:hover { text-decoration: underline; }
@@ -41,47 +38,57 @@
 </head>
 <body>
   <header>
-    <h1>PI INTRUSION TESTING APPLIANCE</h1>
+    <div style="display:flex; align-items:center; gap:1rem;">
+      <img src="/static/logo.png" style="height:48px;">
+      <h1>Network Lock Security</h1>
+    </div>
     <nav><a href="/">&larr; Dashboard</a></nav>
   </header>
 
   <main>
     <div class="meta-grid">
-      <div class="meta-item"><label>Scan ID</label><span>#{{ scan.id }}</span></div>
-      <div class="meta-item"><label>Target</label><span>{{ scan.target }}</span></div>
-      <div class="meta-item"><label>Status</label><span><span class="badge badge-{{ scan.status }}">{{ scan.status }}</span></span></div>
-      <div class="meta-item"><label>Started</label><span>{{ scan.started_at.strftime('%Y-%m-%d %H:%M:%S') if scan.started_at else '—' }}</span></div>
-      <div class="meta-item"><label>Completed</label><span>{{ scan.completed_at.strftime('%H:%M:%S') if scan.completed_at else '—' }}</span></div>
-      <div class="meta-item"><label>Hosts Found</label><span>{{ hosts | length }}</span></div>
+      <div class="meta-item"><label>Scan ID</label><span>{{ scan['id'] }}</span></div>
+      <div class="meta-item"><label>Target</label><span>{{ scan['target_cidr'] }}</span></div>
+      <div class="meta-item"><label>Status</label><span><span class="badge badge-{{ scan['status'] }}">{{ scan['status'] }}</span></span></div>
+      <div class="meta-item"><label>Started</label><span>{{ scan['started_at'] }}</span></div>
+      <div class="meta-item"><label>Completed</label><span>{{ scan['completed_at'] or '—' }}</span></div>
+      <div class="meta-item"><label>Hosts Found</label><span>{{ hosts_with_ports | length }}</span></div>
     </div>
 
     <div class="actions">
-      {% if scan.report %}
-      <a class="btn" href="/scan/{{ scan.id }}/report">View Report</a>
-      {% endif %}
+      <a class="btn" href="/scan/{{ scan['id'] }}/report">View Report</a>
     </div>
 
     <div class="card">
-      <h2>Discovered Hosts ({{ hosts | length }})</h2>
-      {% if hosts %}
-        {% for host in hosts %}
+      <h2>Discovered Hosts ({{ hosts_with_ports | length }})</h2>
+      {% if hosts_with_ports %}
+        {% for item in hosts_with_ports %}
         <div class="host-block">
           <div class="host-header">
-            {{ host.ip_address }}
-            {% if host.hostname %}<small>{{ host.hostname }}</small>{% endif %}
-            <small style="float:right">{{ host.open_ports | length }} open port(s)</small>
+            {{ item.host['ip_address'] }}
+            {% if item.host['hostname'] %}<small>{{ item.host['hostname'] }}</small>{% endif %}
+            {% if item.host['os_guess'] %}<small>{{ item.host['os_guess'] }}</small>{% endif %}
+            <small style="float:right">{{ item.ports | length }} open port(s)</small>
           </div>
-          {% if host.open_ports %}
+          {% if item.ports %}
           <table>
-            <thead><tr><th>Port</th><th>Protocol</th><th>State</th><th>Service</th><th>Version</th></tr></thead>
-            <tbody>
-              {% for port in host.open_ports %}
+            <thead>
               <tr>
-                <td>{{ port.port }}</td>
-                <td>{{ port.protocol }}</td>
-                <td>{{ port.state }}</td>
-                <td>{{ port.service or '—' }}</td>
-                <td>{{ port.version or '—' }}</td>
+                <th>Port</th>
+                <th>Protocol</th>
+                <th>State</th>
+                <th>Service</th>
+                <th>Version</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for port in item.ports %}
+              <tr>
+                <td>{{ port['port_number'] }}</td>
+                <td>{{ port['protocol'] }}</td>
+                <td>{{ port['state'] }}</td>
+                <td>{{ port['service_name'] or '—' }}</td>
+                <td>{{ port['service_version'] or '—' }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -97,24 +104,32 @@
     </div>
 
     <div class="card">
-      <h2>Traffic Events ({{ events | length }})</h2>
-      {% if events %}
+      <h2>Traffic Findings ({{ traffic | length }})</h2>
+      {% if traffic %}
       <table>
-        <thead><tr><th>Severity</th><th>Protocol</th><th>Source</th><th>Destination</th><th>Info</th></tr></thead>
-        <tbody>
-          {% for ev in events %}
+        <thead>
           <tr>
-            <td class="sev-{{ ev.severity }}">{{ ev.severity | upper }}</td>
-            <td>{{ ev.protocol }}</td>
-            <td>{{ ev.src_ip or '—' }}</td>
-            <td>{{ ev.dst_ip or '—' }}</td>
-            <td style="font-size:0.78rem; color:#8b949e;">{{ ev.info[:120] if ev.info else '—' }}</td>
+            <th>Capture Start</th>
+            <th>Capture End</th>
+            <th>Protocol Summary</th>
+            <th>Cleartext Credentials</th>
+            <th>PCAP Path</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in traffic %}
+          <tr>
+            <td>{{ t['capture_start'] }}</td>
+            <td>{{ t['capture_end'] or '—' }}</td>
+            <td style="font-size:0.78rem; color:#8b949e;">{{ t['protocol_summary'] or '—' }}</td>
+            <td>{% if t['cleartext_creds_found'] %}<span style="color:#f85149;">YES</span>{% else %}<span style="color:#56d364;">No</span>{% endif %}</td>
+            <td style="font-size:0.78rem; color:#8b949e;">{{ t['pcap_path'] }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
       {% else %}
-      <p class="empty">No notable traffic events recorded.</p>
+      <p class="empty">No traffic findings recorded.</p>
       {% endif %}
     </div>
   </main>
