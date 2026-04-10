@@ -1,2 +1,115 @@
 <! This is the main page for the penetration testing site >
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PITA — Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Courier New', monospace; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
+    header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+    header h1 { font-size: 1.1rem; color: #58a6ff; letter-spacing: 0.1em; }
+    header span { font-size: 0.75rem; color: #8b949e; }
+    main { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; }
+    .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .card h2 { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
+    form { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; }
+    label { font-size: 0.8rem; color: #8b949e; display: block; margin-bottom: 0.3rem; }
+    input[type=text], input[type=number] {
+      background: #0d1117; border: 1px solid #30363d; border-radius: 4px;
+      color: #c9d1d9; font-family: inherit; font-size: 0.9rem;
+      padding: 0.45rem 0.75rem; width: 200px;
+    }
+    input:focus { outline: none; border-color: #58a6ff; }
+    button[type=submit] {
+      background: #238636; border: 1px solid #2ea043; border-radius: 4px;
+      color: #fff; cursor: pointer; font-family: inherit; font-size: 0.85rem;
+      padding: 0.5rem 1.25rem;
+    }
+    button[type=submit]:hover { background: #2ea043; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; font-size: 0.75rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #30363d; }
+    td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #21262d; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #1c2128; }
+    .badge { display: inline-block; border-radius: 3px; font-size: 0.72rem; padding: 0.15rem 0.5rem; font-weight: 600; }
+    .badge-running  { background: #1f4d7a; color: #79c0ff; }
+    .badge-complete { background: #1a3a2a; color: #56d364; }
+    .badge-failed   { background: #4a1a1a; color: #f85149; }
+    a { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .empty { color: #8b949e; font-size: 0.85rem; text-align: center; padding: 2rem 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PI INTRUSION TESTING APPLIANCE</h1>
+    <span>Team 3 &mdash; ITP 258</span>
+  </header>
 
+  <main>
+    <div class="card">
+      <h2>New Scan</h2>
+      <form method="POST" action="/scan/start">
+        <div>
+          <label for="target">Target subnet</label>
+          <input type="text" id="target" name="target" value="192.168.1.0/24" required>
+        </div>
+        <div>
+          <label for="duration">Capture (seconds)</label>
+          <input type="number" id="duration" name="duration" value="30" min="5" max="300">
+        </div>
+        <div>
+          <label for="interface">Interface</label>
+          <input type="text" id="interface" name="interface" value="wlan0">
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="submit">Run Scan</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Scan History</h2>
+      {% if scans %}
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Target</th>
+            <th>Started</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th>Hosts</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan in scans %}
+          <tr>
+            <td>{{ scan.id }}</td>
+            <td>{{ scan.target }}</td>
+            <td>{{ scan.started_at.strftime('%Y-%m-%d %H:%M') if scan.started_at else '—' }}</td>
+            <td>
+              {% if scan.completed_at and scan.started_at %}
+                {{ ((scan.completed_at - scan.started_at).seconds) }}s
+              {% else %}
+                —
+              {% endif %}
+            </td>
+            <td><span class="badge badge-{{ scan.status }}">{{ scan.status }}</span></td>
+            <td>{{ scan.hosts | length }}</td>
+            <td><a href="/scan/{{ scan.id }}">View</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="empty">No scans yet. Run one above.</p>
+      {% endif %}
+    </div>
+  </main>
+</body>
+</html>
