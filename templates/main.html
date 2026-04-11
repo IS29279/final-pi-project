@@ -5,6 +5,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Network Lock Security</title>
+  {% if any_running %}
+  <meta http-equiv="refresh" content="10">
+  {% endif %}
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Courier New', monospace; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
@@ -40,6 +43,7 @@
     a { color: #58a6ff; text-decoration: none; }
     a:hover { text-decoration: underline; }
     .empty { color: #8b949e; font-size: 0.85rem; text-align: center; padding: 2rem 0; }
+    .refresh-notice { font-size: 0.72rem; color: #8b949e; text-align: right; margin-bottom: 0.5rem; }
   </style>
 </head>
 <body>
@@ -76,11 +80,14 @@
 
     <div class="card">
       <h2>Scan History</h2>
+      {% if any_running %}
+      <p class="refresh-notice">A scan is running &mdash; page refreshes every 10 seconds</p>
+      {% endif %}
       {% if scans %}
       <table>
         <thead>
           <tr>
-            <th>#</th>
+            <th>Scan</th>
             <th>Target</th>
             <th>Started</th>
             <th>Duration</th>
@@ -91,9 +98,9 @@
         <tbody>
           {% for scan in scans %}
           <tr>
-            <td>{{ scan['id'] }}</td>
+            <td>Scan {{ loop.revindex }}</td>
             <td>{{ scan['target_cidr'] }}</td>
-            <td>{{ scan['started_at'] }}</td>
+            <td>{{ scan['started_at'] | to_est }}</td>
             <td>
               {% if scan['completed_at'] and scan['started_at'] %}
                 {{ scan['completed_at'] - scan['started_at'] }}s
