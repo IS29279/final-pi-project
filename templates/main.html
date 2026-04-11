@@ -525,6 +525,30 @@
     .btn-scan:active { transform: scale(0.97); }
     .btn-scan:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
 
+    .btn-stop {
+      background: transparent;
+      border: 1px solid rgba(248,81,73,0.5);
+      border-radius: 4px;
+      color: var(--red);
+      cursor: pointer;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.65rem 1.5rem;
+      text-transform: uppercase;
+      transition: background 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+      white-space: nowrap;
+      display: none;
+    }
+    .btn-stop.visible { display: inline-block; }
+    .btn-stop:hover {
+      background: rgba(248,81,73,0.12);
+      border-color: var(--red);
+      box-shadow: 0 0 14px rgba(248,81,73,0.25);
+    }
+    .btn-stop:active { transform: scale(0.97); }
+
     /* ── Active scan panel ── */
     .active-scan-panel {
       background: rgba(22,27,34,0.5);
@@ -1000,9 +1024,10 @@
             <label for="interface">Interface</label>
             <input type="text" id="interface" name="interface" value="wlan0">
           </div>
-          <div class="form-group">
-            <label>&nbsp;</label>
-            <button type="submit" class="btn-scan" id="scan-btn">Run Scan</button>
+          <div class="form-group" style="display:flex; gap:0.6rem; align-items:flex-end;">
+            <div><label>&nbsp;</label>
+            <button type="submit" class="btn-scan" id="scan-btn">Run Scan</button></div>
+            <button type="button" class="btn-stop" id="stop-btn" onclick="stopScan()">Stop</button>
           </div>
         </div>
       </form>
@@ -1220,6 +1245,7 @@
     document.getElementById("status-dot").classList.remove("scanning");
     document.getElementById("status-label").textContent = "System ready";
     document.getElementById("scan-btn").disabled = false;
+    document.getElementById("stop-btn").classList.remove("visible");
     document.body.classList.remove("scanning-active");
     if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
   }
@@ -1338,6 +1364,7 @@
           document.getElementById("status-dot").classList.add("scanning");
           document.getElementById("status-label").textContent = "Scan in progress";
           document.getElementById("scan-btn").disabled = true;
+          document.getElementById("stop-btn").classList.add("visible");
           document.body.classList.add("scanning-active");
 
           if (elapsedTimer) clearInterval(elapsedTimer);
@@ -1363,6 +1390,22 @@
             }).catch(() => {});
         }
       }).catch(() => {});
+  }
+
+  // Stop scan
+  function stopScan() {
+    if (!confirm("Stop the current scan? Results gathered so far will be saved.")) return;
+    fetch("/scan/stop", { method: "POST" })
+      .then(r => r.json())
+      .then(() => {
+        markScanComplete();
+        document.getElementById("stop-btn").classList.remove("visible");
+        document.getElementById("active-badge").textContent = "Stopped";
+        document.getElementById("active-badge").style.color = "var(--red)";
+        document.getElementById("active-badge").style.background = "rgba(248,81,73,0.1)";
+        document.getElementById("active-badge").style.borderColor = "rgba(248,81,73,0.3)";
+      })
+      .catch(() => {});
   }
 
   // Start polling immediately and every 4 seconds
