@@ -12,15 +12,16 @@ Routes:
 """
 
 import threading
+import datetime
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 
-# Import Channing's database functions directly
 from utils.db import (
     init_db,
     get_session,
     get_hosts,
     get_ports,
 )
+
 
 # ---------------------------------------------------------------------------
 # Helpers not covered by Channing's public functions
@@ -87,6 +88,16 @@ def create_app():
     with app.app_context():
         init_db()
 
+    # Custom Jinja filter: convert Unix timestamp integer to EST string
+    @app.template_filter("to_est")
+    def to_est(unix_ts):
+        if not unix_ts:
+            return "—"
+        utc = datetime.datetime.utcfromtimestamp(int(unix_ts))
+        # EST = UTC-5 (fixed offset; covers Eastern Standard Time)
+        est = utc - datetime.timedelta(hours=5)
+        return est.strftime("%-I:%M %p EST %m/%d/%Y")
+
     register_routes(app)
     return app
 
@@ -100,7 +111,9 @@ def register_routes(app):
     @app.route("/")
     def dashboard():
         scans = get_all_sessions()
-        return render_template("main.html", scans=scans)
+        # Check if any scan is still running so the template can auto-refresh
+        any_running = any(s["status"] == "running" for s in scans)
+        return render_template("main.html", scans=scans, any_running=any_running)
 
 
     @app.route("/scan/<scan_id>")
