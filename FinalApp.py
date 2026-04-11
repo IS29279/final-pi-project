@@ -205,23 +205,41 @@ def register_routes(app):
 
     @app.route("/scan/stop", methods=["POST"])
     def stop_scan():
-        """Signal the active scan to stop and mark its session as failed."""
+        """Signal the active scan to stop, mark it completed, and generate a partial report."""
         stop_event = _active_scan.get("stop_event")
         if stop_event:
             stop_event.set()
 
-        # Find the running session and mark it failed immediately
+        # Find the running session, mark completed, and generate a partial report
+        # from whatever data was collected before the stop
         sessions = get_all_sessions()
+        stopped_id = None
         for s in sessions:
             if s["status"] == "running":
-                complete_session(s["id"], "failed")
+                stopped_id = s["id"]
+                complete_session(s["id"], "completed")
                 break
+
+        if stopped_id:
+            # Generate a partial report from whatever was collected so far
+            try:
+                from orchestrator import generate_report
+                hosts    = get_hosts(stopped_id)
+                host_ids = [h["id"] for h in hosts]
+                # Find any traffic finding for this session
+                findings  = get_traffic_findings(stopped_id)
+                finding_id = findings[0]["id"] if findings else None
+                session    = get_session(stopped_id)
+                target     = session["target_cidr"] if session else "unknown"
+                generate_report(stopped_id, target, host_ids, finding_id)
+            except Exception as e:
+                print(f"[stop] Partial report generation failed: {e}")
 
         _active_scan["session_id"] = None
         _active_scan["stop_event"] = None
         _active_scan["thread"]     = None
 
-        return jsonify({"stopped": True})
+        return jsonify({"stopped": True, "session_id": stopped_id})
 
 
     @app.route("/history")
