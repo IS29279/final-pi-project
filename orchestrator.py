@@ -187,7 +187,8 @@ def _parse_nmap_xml(xml_output: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 def run_tshark_capture(session_id: str, interface: str = "wlan0",
-                       duration: int = DEFAULT_DURATION) -> str:
+                       duration: int = DEFAULT_DURATION,
+                       stop_event=None) -> str:
     """
     Passive traffic capture for `duration` seconds.
     Saves a pcap file and writes a traffic_finding record.
@@ -212,7 +213,18 @@ def run_tshark_capture(session_id: str, interface: str = "wlan0",
     protocol_summary = ""
 
     try:
-        subprocess.run(cmd, capture_output=True, text=True, timeout=duration + 30)
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Poll every second so we can honour a stop request
+        for _ in range(duration + 30):
+            if stop_event is not None and stop_event.is_set():
+                proc.terminate()
+                print("[tshark] Capture terminated by stop request")
+                break
+            if proc.poll() is not None:
+                break
+            time.sleep(1)
+        else:
+            proc.terminate()
 
         # Quick post-capture analysis for cleartext protocols
         analysis_cmd = [
@@ -309,7 +321,8 @@ def generate_report(session_id: str, target: str,
 
 def run_scan(target: str = DEFAULT_TARGET,
              capture_seconds: int = DEFAULT_DURATION,
-             interface: str = "wlan0") -> str:
+             interface: str = "wlan0",
+             stop_event=None) -> str:
     """
     Full scan workflow:
       1. Create a session record in the database
@@ -318,29 +331,49 @@ def run_scan(target: str = DEFAULT_TARGET,
       4. Generate and store a text report
       5. Mark session complete
       6. Return the session ID
+
+    stop_event: threading.Event — if set, the scan exits early and is marked failed.
     """
     init_db()
 
     session_id = create_session(target)
     print(f"[scan] Started session {session_id} against {target}")
 
+    def stopped():
+        return stop_event is not None and stop_event.is_set()
+
     try:
-        # Nmap
+        # Nmap discovery
+        if stopped():
+            raise InterruptedError("Scan stopped by user before discovery")
         live_ips = run_nmap_discovery(target)
+
+        # Nmap service scan
+        if stopped():
+            raise InterruptedError("Scan stopped by user before service scan")
         host_ids = run_nmap_service_scan(session_id, live_ips)
 
         # tshark
+        if stopped():
+            raise InterruptedError("Scan stopped by user before capture")
         finding_id = run_tshark_capture(
             session_id=session_id,
             interface=interface,
             duration=capture_seconds,
+            stop_event=stop_event,
         )
 
         # Report
+        if stopped():
+            raise InterruptedError("Scan stopped by user before report")
         generate_report(session_id, target, host_ids, finding_id)
 
         complete_session(session_id, "completed")
         print(f"[scan] Session {session_id} complete.")
+
+    except InterruptedError as e:
+        complete_session(session_id, "failed")
+        print(f"[scan] Session {session_id} stopped early: {e}")
 
     except Exception as e:
         complete_session(session_id, "failed")
