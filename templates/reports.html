@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Lock Security — Reports</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base:    #0d1117;
+      --bg-surface: #161b22;
+      --bg-raised:  #1c2128;
+      --border:     #30363d;
+      --border-dim: #21262d;
+      --blue:       #58a6ff;
+      --green:      #56d364;
+      --red:        #f85149;
+      --amber:      #e3b341;
+      --text-primary:   #e6edf3;
+      --text-secondary: #c9d1d9;
+      --text-muted:     #8b949e;
+      --text-dim:       #484f58;
+      --font-display: 'Rajdhani', sans-serif;
+      --font-mono:    'Share Tech Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-base);
+      color: var(--text-secondary);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      background: rgba(22,27,34,0.97);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(8px);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .header-left img { height: 38px; filter: drop-shadow(0 0 8px rgba(88,166,255,0.4)); }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.05em;
+    }
+
+    .header-title span { color: var(--blue); }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-left: 2rem;
+    }
+
+    .nav-link {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.35rem 0.85rem;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .nav-link:hover  { color: var(--text-primary); background: var(--bg-raised); }
+    .nav-link.active { color: var(--blue); background: rgba(88,166,255,0.08); }
+
+    .team-tag {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--border-dim);
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+      animation: fadeUp 0.35s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-label {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    /* ── Report cards ── */
+    .reports-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1rem;
+    }
+
+    .report-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      transition: border-color 0.2s, transform 0.15s;
+    }
+
+    .report-card:hover {
+      border-color: rgba(88,166,255,0.4);
+      transform: translateY(-2px);
+    }
+
+    .report-card-header {
+      padding: 1rem 1.25rem 0.75rem;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .report-num {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .format-badge {
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      background: rgba(88,166,255,0.1);
+      color: var(--blue);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 3px;
+      padding: 0.15rem 0.5rem;
+    }
+
+    .report-card-body {
+      padding: 0.85rem 1.25rem;
+    }
+
+    .report-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.45rem;
+    }
+
+    .report-meta-row label {
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+    }
+
+    .report-meta-row span {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    .report-meta-row span.blue { color: var(--blue); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      border-radius: 20px;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.55rem;
+    }
+
+    .badge::before { content:''; width:5px; height:5px; border-radius:50%; }
+
+    .badge-completed { background: rgba(86,211,100,0.1);  color: var(--green); border: 1px solid rgba(86,211,100,0.25); }
+    .badge-completed::before { background: var(--green); }
+    .badge-failed    { background: rgba(248,81,73,0.1);   color: var(--red);   border: 1px solid rgba(248,81,73,0.25); }
+    .badge-failed::before    { background: var(--red); }
+    .badge-running   { background: rgba(88,166,255,0.12); color: var(--blue);  border: 1px solid rgba(88,166,255,0.3); }
+    .badge-running::before   { background: var(--blue); animation: pulse 1.5s infinite; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    .report-card-footer {
+      padding: 0.75rem 1.25rem;
+      border-top: 1px solid var(--border-dim);
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    .btn-view {
+      flex: 1;
+      display: block;
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--blue);
+      background: rgba(88,166,255,0.08);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 4px;
+      padding: 0.45rem 0;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+
+    .btn-view:hover {
+      background: rgba(88,166,255,0.16);
+      border-color: var(--blue);
+      text-decoration: none;
+    }
+
+    .btn-detail {
+      display: block;
+      text-align: center;
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.45rem 0.85rem;
+      text-decoration: none;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .btn-detail:hover {
+      color: var(--text-primary);
+      border-color: var(--text-muted);
+      text-decoration: none;
+    }
+
+    /* ── Summary stat bar ── */
+    .summary-bar {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 1.5rem;
+      padding: 1rem 1.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 8px;
+    }
+
+    .sum-item label {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.15rem;
+    }
+
+    .sum-item span {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    .sum-divider {
+      width: 1px;
+      background: var(--border-dim);
+      align-self: stretch;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 1.5rem;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    .empty-icon { font-size: 2.5rem; opacity: 0.15; margin-bottom: 0.75rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <img src="/static/logo.png" alt="Network Lock Security">
+      <span class="header-title">Network <span>Lock</span> Security</span>
+      <nav class="header-nav">
+        <a href="/"        class="nav-link">Dashboard</a>
+        <a href="/history" class="nav-link">Scan History</a>
+        <a href="/reports" class="nav-link active">Reports</a>
+      </nav>
+    </div>
+    <div style="display:flex;align-items:center;gap:1.5rem;">
+      <span class="team-tag">Team 3 &mdash; ITP 258</span>
+    </div>
+  </header>
+
+  <main>
+
+    {% if reports %}
+    <!-- Summary bar -->
+    <div class="summary-bar">
+      <div class="sum-item">
+        <label>Total reports</label>
+        <span>{{ reports | length }}</span>
+      </div>
+      <div class="sum-divider"></div>
+      <div class="sum-item">
+        <label>Scans covered</label>
+        <span>{{ reports | map(attribute='session_id') | list | unique | list | length }}</span>
+      </div>
+      <div class="sum-divider"></div>
+      <div class="sum-item">
+        <label>Format</label>
+        <span style="font-size:1rem; color:var(--text-muted)">Plain text</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="section-label">Generated reports</div>
+
+    {% if reports %}
+    <div class="reports-grid">
+      {% for report in reports %}
+      <div class="report-card">
+        <div class="report-card-header">
+          <span class="report-num">Scan {{ loop.revindex }}</span>
+          <span class="format-badge">{{ report['format'] }}</span>
+        </div>
+        <div class="report-card-body">
+          <div class="report-meta-row">
+            <label>Target</label>
+            <span class="blue">{{ report['target_cidr'] }}</span>
+          </div>
+          <div class="report-meta-row">
+            <label>Generated</label>
+            <span>{{ report['generated_at'] | to_est }}</span>
+          </div>
+          <div class="report-meta-row">
+            <label>Scan status</label>
+            <span><span class="badge badge-{{ report['status'] }}">{{ report['status'] }}</span></span>
+          </div>
+          <div class="report-meta-row">
+            <label>Duration</label>
+            <span>
+              {% if report['completed_at'] and report['started_at'] %}
+                {{ report['completed_at'] - report['started_at'] }}s
+              {% else %}—{% endif %}
+            </span>
+          </div>
+        </div>
+        <div class="report-card-footer">
+          <a class="btn-view"   href="/scan/{{ report['session_id'] }}/report">View Report</a>
+          <a class="btn-detail" href="/scan/{{ report['session_id'] }}">Scan Detail</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+      <div class="empty-icon">&#9741;</div>
+      <p>No reports generated yet. Complete a scan from the dashboard to generate your first report.</p>
+    </div>
+    {% endif %}
+
+  </main>
+
+</body>
+</html>
