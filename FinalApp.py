@@ -201,6 +201,130 @@ def register_routes(app):
         return jsonify({"hosts": hosts_out, "traffic": traffic_out})
 
 
+    @app.route("/api/system")
+    def api_system():
+        """
+        Returns live system health and network info from the Pi.
+        Uses only stdlib — no psutil required.
+        """
+        import subprocess, socket, re, time, os
+
+        # ── CPU usage (via /proc/stat) ────────────────────────────────────
+        def cpu_percent():
+            try:
+                with open("/proc/stat") as f:
+                    line = f.readline()
+                vals = list(map(int, line.split()[1:]))
+                idle1, total1 = vals[3], sum(vals)
+                time.sleep(0.1)
+                with open("/proc/stat") as f:
+                    line = f.readline()
+                vals = list(map(int, line.split()[1:]))
+                idle2, total2 = vals[3], sum(vals)
+                diff_idle  = idle2  - idle1
+                diff_total = total2 - total1
+                return round(100.0 * (1 - diff_idle / diff_total), 1) if diff_total else 0.0
+            except Exception:
+                return None
+
+        # ── Memory usage (via /proc/meminfo) ─────────────────────────────
+        def mem_info():
+            try:
+                data = {}
+                with open("/proc/meminfo") as f:
+                    for line in f:
+                        k, v = line.split(":")
+                        data[k.strip()] = int(v.strip().split()[0])
+                total    = data.get("MemTotal", 0)
+                available = data.get("MemAvailable", 0)
+                used     = total - available
+                pct      = round(100.0 * used / total, 1) if total else 0.0
+                return {
+                    "total_mb": round(total / 1024),
+                    "used_mb":  round(used  / 1024),
+                    "pct":      pct,
+                }
+            except Exception:
+                return None
+
+        # ── Disk usage (via df) ───────────────────────────────────────────
+        def disk_info():
+            try:
+                out = subprocess.check_output(
+                    ["df", "-BM", "/"], text=True
+                ).splitlines()[1]
+                parts = out.split()
+                total = int(parts[1].rstrip("M"))
+                used  = int(parts[2].rstrip("M"))
+                pct   = int(parts[4].rstrip("%"))
+                return {"total_mb": total, "used_mb": used, "pct": pct}
+            except Exception:
+                return None
+
+        # ── Tool availability ─────────────────────────────────────────────
+        def tool_ok(name):
+            try:
+                subprocess.check_output(["which", name], stderr=subprocess.DEVNULL)
+                return True
+            except Exception:
+                return False
+
+        # ── Network interfaces ────────────────────────────────────────────
+        def net_info():
+            interfaces = []
+            try:
+                out = subprocess.check_output(["ip", "-o", "addr"], text=True)
+                for line in out.splitlines():
+                    parts = line.split()
+                    if len(parts) < 4:
+                        continue
+                    iface = parts[1]
+                    family = parts[2]
+                    if family != "inet":
+                        continue
+                    cidr = parts[3]
+                    ip   = cidr.split("/")[0]
+                    mask = cidr.split("/")[1] if "/" in cidr else ""
+                    if iface == "lo":
+                        continue
+                    interfaces.append({
+                        "interface": iface,
+                        "ip":        ip,
+                        "cidr":      cidr,
+                        "mask":      mask,
+                    })
+            except Exception:
+                pass
+            return interfaces
+
+        # ── Hostname ──────────────────────────────────────────────────────
+        hostname = socket.gethostname()
+
+        # ── Uptime ────────────────────────────────────────────────────────
+        uptime_str = ""
+        try:
+            with open("/proc/uptime") as f:
+                secs = float(f.read().split()[0])
+            h = int(secs // 3600)
+            m = int((secs % 3600) // 60)
+            uptime_str = f"{h}h {m}m"
+        except Exception:
+            uptime_str = "unknown"
+
+        return jsonify({
+            "hostname": hostname,
+            "uptime":   uptime_str,
+            "cpu":      cpu_percent(),
+            "memory":   mem_info(),
+            "disk":     disk_info(),
+            "tools": {
+                "nmap":   tool_ok("nmap"),
+                "tshark": tool_ok("tshark"),
+            },
+            "interfaces": net_info(),
+        })
+
+
     @app.route("/status")
     def status():
         sessions = get_all_sessions()
