@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Lock Security — Scan History</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base:    #0d1117;
+      --bg-surface: #161b22;
+      --bg-raised:  #1c2128;
+      --border:     #30363d;
+      --border-dim: #21262d;
+      --blue:       #58a6ff;
+      --green:      #56d364;
+      --red:        #f85149;
+      --amber:      #e3b341;
+      --text-primary:   #e6edf3;
+      --text-secondary: #c9d1d9;
+      --text-muted:     #8b949e;
+      --text-dim:       #484f58;
+      --font-display: 'Rajdhani', sans-serif;
+      --font-mono:    'Share Tech Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-base);
+      color: var(--text-secondary);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      background: rgba(22,27,34,0.97);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(8px);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .header-left img { height: 38px; filter: drop-shadow(0 0 8px rgba(88,166,255,0.4)); }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.05em;
+    }
+
+    .header-title span { color: var(--blue); }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-left: 2rem;
+    }
+
+    .nav-link {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.35rem 0.85rem;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .nav-link:hover { color: var(--text-primary); background: var(--bg-raised); }
+    .nav-link.active { color: var(--blue); background: rgba(88,166,255,0.08); }
+
+    .team-tag {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--border-dim);
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2.5rem 1.5rem 4rem;
+      animation: fadeUp 0.35s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .section-label {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    .history-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .history-header {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .history-header h2 {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+
+    .total-tag {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 0.15rem 0.6rem;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+
+    thead tr { background: var(--bg-raised); }
+
+    th {
+      padding: 0.65rem 1.25rem;
+      font-size: 0.62rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      font-weight: 400;
+      text-align: left;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    td {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 0.85rem;
+      vertical-align: middle;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background 0.15s; }
+    tbody tr:hover td { background: var(--bg-raised); }
+
+    .scan-num {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .target-val { color: var(--blue); font-size: 0.82rem; }
+    .time-val   { color: var(--text-muted); font-size: 0.8rem; }
+    .dur-val    { color: var(--text-secondary); font-size: 0.8rem; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      border-radius: 20px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.65rem;
+    }
+
+    .badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; }
+
+    .badge-running   { background: rgba(88,166,255,0.12);  color: var(--blue);  border: 1px solid rgba(88,166,255,0.3); }
+    .badge-running::before   { background: var(--blue); animation: pulse 1.5s infinite; }
+    .badge-completed { background: rgba(86,211,100,0.1);   color: var(--green); border: 1px solid rgba(86,211,100,0.25); }
+    .badge-completed::before { background: var(--green); }
+    .badge-failed    { background: rgba(248,81,73,0.1);    color: var(--red);   border: 1px solid rgba(248,81,73,0.25); }
+    .badge-failed::before    { background: var(--red); }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    .view-btn {
+      display: inline-block;
+      font-size: 0.72rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.25rem 0.75rem;
+      text-decoration: none;
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .view-btn:hover { color: var(--blue); border-color: var(--blue); text-decoration: none; }
+
+    .empty-state {
+      padding: 3.5rem 1.5rem;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <img src="/static/logo.png" alt="Network Lock Security">
+      <span class="header-title">Network <span>Lock</span> Security</span>
+      <nav class="header-nav">
+        <a href="/" class="nav-link">Dashboard</a>
+        <a href="/history" class="nav-link active">Scan History</a>
+      </nav>
+    </div>
+    <div style="display:flex;align-items:center;gap:1.5rem;">
+      <span class="team-tag">Team 3 &mdash; ITP 258</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="section-label">Assessment log</div>
+    <div class="history-card">
+      <div class="history-header">
+        <h2>All Scans</h2>
+        <span class="total-tag">{{ scans | length }} total</span>
+      </div>
+
+      {% if scans %}
+      <table>
+        <thead>
+          <tr>
+            <th>Scan</th>
+            <th>Target</th>
+            <th>Started</th>
+            <th>Completed</th>
+            <th>Duration</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for scan in scans %}
+          <tr>
+            <td><span class="scan-num">Scan {{ loop.revindex }}</span></td>
+            <td><span class="target-val">{{ scan['target_cidr'] }}</span></td>
+            <td><span class="time-val">{{ scan['started_at'] | to_est }}</span></td>
+            <td><span class="time-val">{{ scan['completed_at'] | to_est if scan['completed_at'] else '—' }}</span></td>
+            <td>
+              <span class="dur-val">
+                {% if scan['completed_at'] and scan['started_at'] %}
+                  {{ scan['completed_at'] - scan['started_at'] }}s
+                {% else %}—{% endif %}
+              </span>
+            </td>
+            <td><span class="badge badge-{{ scan['status'] }}">{{ scan['status'] }}</span></td>
+            <td><a class="view-btn" href="/scan/{{ scan['id'] }}">View &rarr;</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">No scans recorded yet. Run your first scan from the dashboard.</div>
+      {% endif %}
+    </div>
+  </main>
+
+</body>
+</html>
