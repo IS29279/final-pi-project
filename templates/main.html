@@ -56,10 +56,12 @@
       animation: scanline 4s linear infinite paused;
       z-index: -1;
       pointer-events: none;
+      opacity: 0;
     }
 
     body.scanning-active::after {
       animation-play-state: running;
+      opacity: 1;
     }
 
     @keyframes scanline {
@@ -206,9 +208,11 @@
       animation-delay: -0.4s;
       z-index: 1;
       pointer-events: none;
+      opacity: 0;
     }
     body.scanning-active .sidebar-panel::before {
       animation-play-state: running;
+      opacity: 1;
     }
 
     .sidebar-header {
@@ -461,9 +465,11 @@
       animation-delay: -0.8s;
       z-index: 0;
       pointer-events: none;
+      opacity: 0;
     }
     body.scanning-active .scan-card::before {
       animation-play-state: running;
+      opacity: 1;
     }
 
     @keyframes fadeUp {
@@ -574,9 +580,11 @@
       animation-delay: -1.6s;
       z-index: 0;
       pointer-events: none;
+      opacity: 0;
     }
     body.scanning-active .active-scan-panel::before {
       animation-play-state: running;
+      opacity: 1;
     }
 
     .active-scan-panel.visible { display: block; }
@@ -724,9 +732,11 @@
       animation-delay: -3.2s;
       z-index: 1;
       pointer-events: none;
+      opacity: 0;
     }
     body.scanning-active .panel::before {
       animation-play-state: running;
+      opacity: 1;
     }
 
     .panel-header {
@@ -867,9 +877,11 @@
       animation-delay: -2.4s;
       z-index: 0;
       pointer-events: none;
+      opacity: 0;
     }
     body.scanning-active .stat-card::before {
       animation-play-state: running;
+      opacity: 1;
     }
 
     .stat-icon {
@@ -1400,10 +1412,10 @@
       .then(() => {
         markScanComplete();
         document.getElementById("stop-btn").classList.remove("visible");
-        document.getElementById("active-badge").textContent = "Stopped";
-        document.getElementById("active-badge").style.color = "var(--red)";
-        document.getElementById("active-badge").style.background = "rgba(248,81,73,0.1)";
-        document.getElementById("active-badge").style.borderColor = "rgba(248,81,73,0.3)";
+        document.getElementById("active-badge").textContent = "Completed (stopped early)";
+        document.getElementById("active-badge").style.color = "var(--green)";
+        document.getElementById("active-badge").style.background = "rgba(86,211,100,0.1)";
+        document.getElementById("active-badge").style.borderColor = "rgba(86,211,100,0.3)";
       })
       .catch(() => {});
   }
