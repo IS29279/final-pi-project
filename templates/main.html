@@ -14,11 +14,8 @@
       --border:     #30363d;
       --border-dim: #21262d;
       --blue:       #58a6ff;
-      --blue-dim:   #1f4d7a;
       --green:      #56d364;
-      --green-dim:  #1a3a2a;
       --red:        #f85149;
-      --red-dim:    #4a1a1a;
       --amber:      #e3b341;
       --text-primary:   #e6edf3;
       --text-secondary: #c9d1d9;
@@ -38,7 +35,6 @@
       overflow-x: hidden;
     }
 
-    /* ── Animated grid background ── */
     body::before {
       content: '';
       position: fixed;
@@ -51,7 +47,6 @@
       z-index: 0;
     }
 
-    /* ── Top scan line animation ── */
     body::after {
       content: '';
       position: fixed;
@@ -73,7 +68,7 @@
     header {
       position: relative;
       z-index: 10;
-      background: rgba(22,27,34,0.95);
+      background: rgba(22,27,34,0.97);
       border-bottom: 1px solid var(--border);
       padding: 0 2rem;
       height: 64px;
@@ -90,21 +85,42 @@
     }
 
     .header-left img {
-      height: 40px;
+      height: 38px;
       filter: drop-shadow(0 0 8px rgba(88,166,255,0.4));
     }
 
     .header-title {
       font-family: var(--font-display);
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 700;
       color: var(--text-primary);
       letter-spacing: 0.05em;
     }
 
-    .header-title span {
-      color: var(--blue);
+    .header-title span { color: var(--blue); }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      margin-left: 2rem;
     }
+
+    .nav-link {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.35rem 0.85rem;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .nav-link:hover { color: var(--text-primary); background: var(--bg-raised); }
+    .nav-link.active { color: var(--blue); background: rgba(88,166,255,0.08); }
 
     .header-right {
       display: flex;
@@ -116,33 +132,29 @@
       display: flex;
       align-items: center;
       gap: 0.4rem;
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: var(--text-muted);
       letter-spacing: 0.06em;
       text-transform: uppercase;
     }
 
     .dot {
-      width: 7px;
-      height: 7px;
+      width: 7px; height: 7px;
       border-radius: 50%;
       background: var(--green);
       box-shadow: 0 0 6px var(--green);
       animation: pulse 2s ease-in-out infinite;
     }
 
-    .dot.scanning {
-      background: var(--amber);
-      box-shadow: 0 0 6px var(--amber);
-    }
+    .dot.scanning { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }
-      50%       { opacity: 0.4; }
+      50%       { opacity: 0.35; }
     }
 
     .team-tag {
-      font-size: 0.72rem;
+      font-size: 0.68rem;
       color: var(--text-dim);
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -157,12 +169,11 @@
       z-index: 1;
       max-width: 1100px;
       margin: 0 auto;
-      padding: 2rem 1.5rem 4rem;
+      padding: 2.5rem 1.5rem 4rem;
     }
 
-    /* ── Section labels ── */
     .section-label {
-      font-size: 0.68rem;
+      font-size: 0.66rem;
       font-weight: 600;
       letter-spacing: 0.14em;
       text-transform: uppercase;
@@ -180,32 +191,32 @@
       background: linear-gradient(90deg, var(--border), transparent);
     }
 
-    /* ── Scan form card ── */
+    /* ── Scan launch card ── */
     .scan-card {
       background: var(--bg-surface);
       border: 1px solid var(--border);
       border-top: 2px solid var(--blue);
       border-radius: 0 0 8px 8px;
-      padding: 1.75rem 2rem;
+      padding: 2rem 2.5rem;
       margin-bottom: 2rem;
       animation: fadeUp 0.4s ease both;
     }
 
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(12px); }
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
     .scan-form-grid {
       display: grid;
       grid-template-columns: 2fr 1fr 1fr auto;
-      gap: 1rem;
+      gap: 1.25rem;
       align-items: end;
     }
 
     .form-group label {
       display: block;
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-muted);
@@ -220,8 +231,8 @@
       color: var(--text-primary);
       font-family: var(--font-mono);
       font-size: 0.9rem;
-      padding: 0.55rem 0.85rem;
-      transition: border-color 0.2s;
+      padding: 0.65rem 0.9rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
 
     .form-group input:focus {
@@ -240,101 +251,50 @@
       font-size: 1rem;
       font-weight: 700;
       letter-spacing: 0.08em;
-      padding: 0.55rem 1.75rem;
+      padding: 0.65rem 2rem;
       text-transform: uppercase;
       transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
       white-space: nowrap;
     }
 
-    .btn-scan:hover {
-      background: #79c0ff;
-      box-shadow: 0 0 16px rgba(88,166,255,0.4);
-    }
-
+    .btn-scan:hover { background: #79c0ff; box-shadow: 0 0 18px rgba(88,166,255,0.4); }
     .btn-scan:active { transform: scale(0.97); }
+    .btn-scan:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; box-shadow: none; }
 
-    /* ── Stats row ── */
-    .stats-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-      margin-bottom: 2rem;
-      animation: fadeUp 0.4s 0.1s ease both;
-    }
-
-    .stat-card {
+    /* ── Active scan panel ── */
+    .active-scan-panel {
       background: var(--bg-surface);
-      border: 1px solid var(--border-dim);
-      border-radius: 6px;
-      padding: 1.1rem 1.25rem;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .stat-icon {
-      width: 36px;
-      height: 36px;
-      border-radius: 6px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.1rem;
-      flex-shrink: 0;
-    }
-
-    .stat-icon.blue  { background: rgba(88,166,255,0.12);  color: var(--blue); }
-    .stat-icon.green { background: rgba(86,211,100,0.12);  color: var(--green); }
-    .stat-icon.amber { background: rgba(227,179,65,0.12);  color: var(--amber); }
-
-    .stat-info label {
-      display: block;
-      font-size: 0.65rem;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 0.15rem;
-    }
-
-    .stat-info span {
-      font-family: var(--font-display);
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: var(--text-primary);
-      line-height: 1;
-    }
-
-    /* ── History table ── */
-    .history-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      overflow: hidden;
+      border: 1px solid rgba(88,166,255,0.25);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 8px 8px 0;
+      padding: 1.5rem 2rem;
       margin-bottom: 2rem;
-      animation: fadeUp 0.4s 0.2s ease both;
+      display: none;
+      animation: fadeUp 0.3s ease both;
     }
 
-    .history-header {
-      padding: 1rem 1.5rem;
-      border-bottom: 1px solid var(--border-dim);
+    .active-scan-panel.visible { display: block; }
+
+    .active-scan-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
+      margin-bottom: 1.25rem;
     }
 
-    .history-header h2 {
+    .active-scan-title {
       font-family: var(--font-display);
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+      font-size: 1.1rem;
+      font-weight: 700;
       color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
     }
 
-    {% if any_running %}
-    .refresh-pill {
+    .scanning-badge {
       font-size: 0.65rem;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--amber);
       background: rgba(227,179,65,0.1);
@@ -342,178 +302,310 @@
       border-radius: 20px;
       padding: 0.2rem 0.65rem;
     }
-    {% endif %}
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
+    .active-scan-meta {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 1.5rem;
     }
 
-    thead tr {
-      background: var(--bg-raised);
-    }
-
-    th {
-      padding: 0.6rem 1.25rem;
-      font-size: 0.65rem;
-      letter-spacing: 0.12em;
+    .meta-block label {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
       text-transform: uppercase;
-      color: var(--text-muted);
-      font-weight: 400;
-      text-align: left;
-      border-bottom: 1px solid var(--border-dim);
+      color: var(--text-dim);
+      margin-bottom: 0.2rem;
     }
 
-    td {
-      padding: 0.8rem 1.25rem;
-      border-bottom: 1px solid var(--border-dim);
-      font-size: 0.85rem;
-      vertical-align: middle;
-    }
-
-    tr:last-child td { border-bottom: none; }
-
-    tbody tr {
-      transition: background 0.15s;
-    }
-
-    tbody tr:hover td { background: var(--bg-raised); }
-
-    .scan-num {
-      font-family: var(--font-display);
-      font-size: 1rem;
-      font-weight: 700;
+    .meta-block span {
+      font-size: 0.88rem;
       color: var(--text-primary);
     }
 
-    .target-val {
-      color: var(--blue);
-      font-size: 0.82rem;
+    /* ── Progress bars ── */
+    .phases {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
     }
 
-    .time-val {
-      color: var(--text-muted);
-      font-size: 0.8rem;
-    }
-
-    .duration-val {
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3rem;
-      border-radius: 20px;
+    .phase-block label {
+      display: flex;
+      justify-content: space-between;
       font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 0.2rem 0.65rem;
-    }
-
-    .badge::before {
-      content: '';
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-    }
-
-    .badge-running   {
-      background: rgba(88,166,255,0.12);
-      color: var(--blue);
-      border: 1px solid rgba(88,166,255,0.3);
-    }
-    .badge-running::before   { background: var(--blue); box-shadow: 0 0 4px var(--blue); animation: pulse 1.5s infinite; }
-
-    .badge-completed {
-      background: rgba(86,211,100,0.1);
-      color: var(--green);
-      border: 1px solid rgba(86,211,100,0.25);
-    }
-    .badge-completed::before { background: var(--green); }
-
-    .badge-failed    {
-      background: rgba(248,81,73,0.1);
-      color: var(--red);
-      border: 1px solid rgba(248,81,73,0.25);
-    }
-    .badge-failed::before    { background: var(--red); }
-
-    .view-btn {
-      display: inline-block;
-      font-size: 0.72rem;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-muted);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.25rem 0.75rem;
-      text-decoration: none;
-      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: 0.4rem;
     }
 
-    .view-btn:hover {
+    .phase-block label span {
       color: var(--blue);
-      border-color: var(--blue);
-      text-decoration: none;
+      font-weight: 600;
     }
 
-    .empty-state {
-      padding: 3rem 1.5rem;
-      text-align: center;
+    .progress-track {
+      height: 6px;
+      background: var(--bg-raised);
+      border-radius: 3px;
+      overflow: hidden;
+      border: 1px solid var(--border-dim);
     }
 
-    .empty-state p {
+    .progress-fill {
+      height: 100%;
+      border-radius: 3px;
+      background: linear-gradient(90deg, var(--blue), #79c0ff);
+      transition: width 0.6s ease;
+      position: relative;
+    }
+
+    .progress-fill.complete {
+      background: linear-gradient(90deg, var(--green), #7ee787);
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 20px; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+
+    .progress-fill.complete::after { display: none; }
+
+    @keyframes shimmer {
+      0%   { opacity: 0; }
+      50%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    .phase-status {
+      font-size: 0.65rem;
       color: var(--text-dim);
-      font-size: 0.85rem;
-      margin-top: 0.5rem;
+      margin-top: 0.3rem;
+      letter-spacing: 0.04em;
     }
 
-    .empty-icon {
-      font-size: 2rem;
-      opacity: 0.2;
-      margin-bottom: 0.5rem;
+    /* ── Two column layout for lower panels ── */
+    .lower-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.4s 0.15s ease both;
     }
 
-    /* ── Footer logo ── */
+    .panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      padding: 0.85rem 1.25rem;
+      border-bottom: 1px solid var(--border-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-header h3 {
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+    }
+
+    .panel-count {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      background: var(--bg-raised);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 0.1rem 0.5rem;
+    }
+
+    .panel-body {
+      padding: 0;
+      max-height: 320px;
+      overflow-y: auto;
+    }
+
+    .panel-body::-webkit-scrollbar { width: 4px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    /* ── Finding rows ── */
+    .finding-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 1.25rem;
+      border-bottom: 1px solid var(--border-dim);
+      transition: background 0.15s;
+      animation: slideIn 0.25s ease both;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(-8px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .finding-row:last-child { border-bottom: none; }
+    .finding-row:hover { background: var(--bg-raised); }
+
+    .finding-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    .finding-dot.critical { background: var(--red);   box-shadow: 0 0 4px var(--red); }
+    .finding-dot.warning  { background: var(--amber); box-shadow: 0 0 4px var(--amber); }
+    .finding-dot.info     { background: var(--blue);  box-shadow: 0 0 4px var(--blue); }
+    .finding-dot.open     { background: var(--green); }
+
+    .finding-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .finding-main {
+      font-size: 0.82rem;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .finding-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.1rem;
+    }
+
+    .sev-tag {
+      font-size: 0.6rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      padding: 0.1rem 0.4rem;
+      flex-shrink: 0;
+    }
+
+    .sev-tag.critical { background: rgba(248,81,73,0.15);   color: var(--red); }
+    .sev-tag.warning  { background: rgba(227,179,65,0.15);  color: var(--amber); }
+    .sev-tag.info     { background: rgba(88,166,255,0.12);  color: var(--blue); }
+
+    .panel-empty {
+      padding: 2.5rem 1.25rem;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.8rem;
+    }
+
+    /* ── Stats row ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1rem;
+      margin-bottom: 2rem;
+      animation: fadeUp 0.4s 0.05s ease both;
+    }
+
+    .stat-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+    }
+
+    .stat-icon {
+      width: 34px; height: 34px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .stat-icon.blue  { background: rgba(88,166,255,0.12);  color: var(--blue); }
+    .stat-icon.green { background: rgba(86,211,100,0.12);  color: var(--green); }
+    .stat-icon.red   { background: rgba(248,81,73,0.12);   color: var(--red); }
+    .stat-icon.amber { background: rgba(227,179,65,0.12);  color: var(--amber); }
+
+    .stat-info label {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.1rem;
+    }
+
+    .stat-info span {
+      font-family: var(--font-display);
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+    }
+
+    /* ── Footer ── */
     .footer-logo {
       text-align: center;
       padding: 2rem 0 0;
-      animation: fadeUp 0.4s 0.3s ease both;
     }
 
     .footer-logo img {
-      height: 80px;
-      opacity: 0.3;
+      height: 70px;
+      opacity: 0.2;
       filter: grayscale(40%);
       transition: opacity 0.3s, filter 0.3s;
     }
 
     .footer-logo img:hover {
-      opacity: 0.7;
+      opacity: 0.6;
       filter: grayscale(0%) drop-shadow(0 0 12px rgba(88,166,255,0.4));
     }
 
-    /* ── Responsive ── */
-    @media (max-width: 700px) {
+    @media (max-width: 800px) {
       .scan-form-grid { grid-template-columns: 1fr 1fr; }
       .scan-form-grid .btn-scan { grid-column: span 2; }
-      .stats-row { grid-template-columns: 1fr; }
+      .lower-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .active-scan-meta { grid-template-columns: 1fr 1fr; }
+      .phases { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
+
   <header>
     <div class="header-left">
       <img src="/static/logo.png" alt="Network Lock Security">
       <span class="header-title">Network <span>Lock</span> Security</span>
+      <nav class="header-nav">
+        <a href="/" class="nav-link active">Dashboard</a>
+        <a href="/history" class="nav-link">Scan History</a>
+      </nav>
     </div>
     <div class="header-right">
       <div class="status-dot">
-        <div class="dot {% if any_running %}scanning{% endif %}"></div>
-        {% if any_running %}Scan in progress{% else %}System ready{% endif %}
+        <div class="dot" id="status-dot"></div>
+        <span id="status-label">System ready</span>
       </div>
       <span class="team-tag">Team 3 &mdash; ITP 258</span>
     </div>
@@ -521,10 +613,10 @@
 
   <main>
 
-    <!-- New Scan -->
+    <!-- Scan launcher -->
     <div class="section-label">Initialize scan</div>
     <div class="scan-card">
-      <form method="POST" action="/scan/start">
+      <form method="POST" action="/scan/start" id="scan-form">
         <div class="scan-form-grid">
           <div class="form-group">
             <label for="target">Target subnet</label>
@@ -540,10 +632,55 @@
           </div>
           <div class="form-group">
             <label>&nbsp;</label>
-            <button type="submit" class="btn-scan">Run Scan</button>
+            <button type="submit" class="btn-scan" id="scan-btn">Run Scan</button>
           </div>
         </div>
       </form>
+    </div>
+
+    <!-- Active scan panel (shown during scan) -->
+    <div class="active-scan-panel" id="active-panel">
+      <div class="active-scan-top">
+        <div class="active-scan-title">
+          <span id="active-scan-label">Scan #1</span>
+          <span class="scanning-badge" id="active-badge">Scanning</span>
+        </div>
+        <span style="font-size:0.72rem; color:var(--text-dim)" id="active-elapsed">0s elapsed</span>
+      </div>
+      <div class="active-scan-meta">
+        <div class="meta-block">
+          <label>Target</label>
+          <span id="active-target">—</span>
+        </div>
+        <div class="meta-block">
+          <label>Started</label>
+          <span id="active-started">—</span>
+        </div>
+        <div class="meta-block">
+          <label>Interface</label>
+          <span id="active-interface">—</span>
+        </div>
+        <div class="meta-block">
+          <label>Capture duration</label>
+          <span id="active-duration">—</span>
+        </div>
+      </div>
+      <div class="phases">
+        <div class="phase-block">
+          <label>Host Discovery (Nmap) <span id="nmap-pct">0%</span></label>
+          <div class="progress-track">
+            <div class="progress-fill" id="nmap-bar" style="width:0%"></div>
+          </div>
+          <div class="phase-status" id="nmap-status">Waiting...</div>
+        </div>
+        <div class="phase-block">
+          <label>Traffic Capture (tshark) <span id="tshark-pct">0%</span></label>
+          <div class="progress-track">
+            <div class="progress-fill" id="tshark-bar" style="width:0%"></div>
+          </div>
+          <div class="phase-status" id="tshark-status">Waiting for discovery...</div>
+        </div>
+      </div>
     </div>
 
     <!-- Stats -->
@@ -552,74 +689,56 @@
         <div class="stat-icon blue">&#9741;</div>
         <div class="stat-info">
           <label>Total scans</label>
-          <span>{{ scans | length }}</span>
+          <span id="stat-total">{{ scans | length }}</span>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon green">&#10003;</div>
         <div class="stat-info">
           <label>Completed</label>
-          <span>{{ scans | selectattr('status', 'equalto', 'completed') | list | length }}</span>
+          <span id="stat-completed">{{ scans | selectattr('status', 'equalto', 'completed') | list | length }}</span>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">&#9888;</div>
+        <div class="stat-info">
+          <label>Issues found</label>
+          <span id="stat-issues">0</span>
         </div>
       </div>
       <div class="stat-card">
         <div class="stat-icon amber">&#9684;</div>
         <div class="stat-info">
           <label>Running</label>
-          <span>{{ scans | selectattr('status', 'equalto', 'running') | list | length }}</span>
+          <span id="stat-running">{{ scans | selectattr('status', 'equalto', 'running') | list | length }}</span>
         </div>
       </div>
     </div>
 
-    <!-- Scan History -->
-    <div class="section-label">Scan history</div>
-    <div class="history-card">
-      <div class="history-header">
-        <h2>Assessment Log</h2>
-        {% if any_running %}
-        <span class="refresh-pill" id="refresh-pill">&#9900; Live</span>
-        {% endif %}
+    <!-- Live findings panels -->
+    <div class="section-label">Live findings</div>
+    <div class="lower-grid">
+
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Hosts &amp; Open Ports</h3>
+          <span class="panel-count" id="hosts-count">0</span>
+        </div>
+        <div class="panel-body" id="hosts-feed">
+          <div class="panel-empty">No hosts discovered yet</div>
+        </div>
       </div>
 
-      {% if scans %}
-      <table>
-        <thead>
-          <tr>
-            <th>Scan</th>
-            <th>Target</th>
-            <th>Started</th>
-            <th>Duration</th>
-            <th>Status</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for scan in scans %}
-          <tr>
-            <td><span class="scan-num">Scan {{ loop.revindex }}</span></td>
-            <td><span class="target-val">{{ scan['target_cidr'] }}</span></td>
-            <td><span class="time-val">{{ scan['started_at'] | to_est }}</span></td>
-            <td>
-              <span class="duration-val">
-                {% if scan['completed_at'] and scan['started_at'] %}
-                  {{ scan['completed_at'] - scan['started_at'] }}s
-                {% else %}
-                  —
-                {% endif %}
-              </span>
-            </td>
-            <td><span class="badge badge-{{ scan['status'] }}">{{ scan['status'] }}</span></td>
-            <td><a class="view-btn" href="/scan/{{ scan['id'] }}">View &rarr;</a></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-      <div class="empty-state">
-        <div class="empty-icon">&#9741;</div>
-        <p>No scans yet. Configure a target above and run your first assessment.</p>
+      <div class="panel">
+        <div class="panel-header">
+          <h3>Traffic Alerts</h3>
+          <span class="panel-count" id="alerts-count">0</span>
+        </div>
+        <div class="panel-body" id="alerts-feed">
+          <div class="panel-empty">No alerts yet</div>
+        </div>
       </div>
-      {% endif %}
+
     </div>
 
     <!-- Footer logo -->
@@ -630,86 +749,223 @@
   </main>
 
 <script>
-  // Poll /api/scans every 5 seconds and update table rows without a page reload
+  // ── Helpers ───────────────────────────────────────────────────────────────
   function formatEST(unix) {
     if (!unix) return "—";
-    const d = new Date((unix - 18000) * 1000); // subtract 5hr for EST
-    const h = d.getUTCHours();
-    const m = String(d.getUTCMinutes()).padStart(2, "0");
-    const ampm = h >= 12 ? "PM" : "AM";
-    const h12 = h % 12 || 12;
-    const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
-    const dy = String(d.getUTCDate()).padStart(2, "0");
+    const d = new Date((unix - 18000) * 1000);
+    const h = d.getUTCHours(), m = String(d.getUTCMinutes()).padStart(2,"0");
+    const ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 || 12;
+    const mo = String(d.getUTCMonth()+1).padStart(2,"0");
+    const dy = String(d.getUTCDate()).padStart(2,"0");
     const yr = d.getUTCFullYear();
     return h12 + ":" + m + " " + ampm + " EST " + mo + "/" + dy + "/" + yr;
   }
 
-  function badgeClass(status) {
-    if (status === "completed") return "badge badge-completed";
-    if (status === "failed")    return "badge badge-failed";
-    return "badge badge-running";
-  }
+  // ── State ─────────────────────────────────────────────────────────────────
+  let activeScanId   = null;
+  let scanStartTs    = null;
+  let elapsedTimer   = null;
+  let knownHostIds   = new Set();
+  let issueCount     = 0;
+  let totalScans     = {{ scans | length }};
 
-  function updateTable(scans) {
-    const tbody = document.querySelector("tbody");
-    if (!tbody) return;
-    const total = scans.length;
-    tbody.innerHTML = scans.map((scan, i) => {
-      const num = total - i;
-      const dur = (scan.completed_at && scan.started_at)
-        ? (scan.completed_at - scan.started_at) + "s"
-        : "—";
-      return \`<tr>
-        <td><span class="scan-num">Scan \${num}</span></td>
-        <td><span class="target-val">\${scan.target_cidr}</span></td>
-        <td><span class="time-val">\${formatEST(scan.started_at)}</span></td>
-        <td><span class="duration-val">\${dur}</span></td>
-        <td><span class="\${badgeClass(scan.status)}">\${scan.status}</span></td>
-        <td><a class="view-btn" href="/scan/\${scan.id}">View &rarr;</a></td>
-      </tr>\`;
-    }).join("");
-  }
+  // ── Progress simulation ───────────────────────────────────────────────────
+  // We don't have a real-time progress feed from the Pi, so we simulate
+  // progress based on elapsed time vs the configured duration.
+  // Nmap gets the first 40% of total time, tshark gets the rest.
+  function updateProgress(elapsedSec, totalDuration) {
+    const nmapEstimate    = totalDuration * 0.4;
+    const tsharkEstimate  = totalDuration * 0.6;
 
-  function updateStatusDot(scans) {
-    const dot  = document.querySelector(".dot");
-    const label = document.querySelector(".status-dot");
-    const pill  = document.getElementById("refresh-pill");
-    const anyRunning = scans.some(s => s.status === "running");
+    let nmapPct, tsharkPct, nmapStatus, tsharkStatus;
 
-    if (dot) {
-      dot.classList.toggle("scanning", anyRunning);
+    if (elapsedSec <= nmapEstimate) {
+      nmapPct     = Math.min(99, Math.round((elapsedSec / nmapEstimate) * 100));
+      tsharkPct   = 0;
+      nmapStatus   = "Discovering hosts and scanning ports...";
+      tsharkStatus = "Waiting for discovery to complete...";
+    } else {
+      nmapPct      = 100;
+      const tElapsed = elapsedSec - nmapEstimate;
+      tsharkPct    = Math.min(99, Math.round((tElapsed / tsharkEstimate) * 100));
+      nmapStatus   = "Complete";
+      tsharkStatus = "Capturing network traffic...";
     }
-    if (label) {
-      const text = label.childNodes[label.childNodes.length - 1];
-      if (text && text.nodeType === 3) {
-        text.textContent = anyRunning ? "Scan in progress" : "System ready";
+
+    document.getElementById("nmap-bar").style.width   = nmapPct + "%";
+    document.getElementById("tshark-bar").style.width = tsharkPct + "%";
+    document.getElementById("nmap-pct").textContent   = nmapPct + "%";
+    document.getElementById("tshark-pct").textContent = tsharkPct + "%";
+    document.getElementById("nmap-status").textContent   = nmapStatus;
+    document.getElementById("tshark-status").textContent = tsharkStatus;
+
+    if (nmapPct === 100) {
+      document.getElementById("nmap-bar").classList.add("complete");
+    }
+  }
+
+  function markScanComplete() {
+    document.getElementById("nmap-bar").style.width    = "100%";
+    document.getElementById("tshark-bar").style.width  = "100%";
+    document.getElementById("nmap-pct").textContent    = "100%";
+    document.getElementById("tshark-pct").textContent  = "100%";
+    document.getElementById("nmap-bar").classList.add("complete");
+    document.getElementById("tshark-bar").classList.add("complete");
+    document.getElementById("nmap-status").textContent    = "Complete";
+    document.getElementById("tshark-status").textContent  = "Complete";
+    document.getElementById("active-badge").textContent   = "Complete";
+    document.getElementById("active-badge").style.color   = "var(--green)";
+    document.getElementById("active-badge").style.background = "rgba(86,211,100,0.1)";
+    document.getElementById("active-badge").style.borderColor = "rgba(86,211,100,0.3)";
+    document.getElementById("status-dot").classList.remove("scanning");
+    document.getElementById("status-label").textContent = "System ready";
+    document.getElementById("scan-btn").disabled = false;
+    if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
+  }
+
+  // ── Feeds ─────────────────────────────────────────────────────────────────
+  function renderHosts(hosts) {
+    if (!hosts || hosts.length === 0) return;
+    const feed = document.getElementById("hosts-feed");
+    const empty = feed.querySelector(".panel-empty");
+    if (empty) empty.remove();
+
+    hosts.forEach(h => {
+      if (knownHostIds.has(h.id)) return;
+      knownHostIds.add(h.id);
+
+      const ports = h.ports || [];
+      ports.forEach(p => {
+        const row = document.createElement("div");
+        row.className = "finding-row";
+        row.innerHTML = `
+          <div class="finding-dot open"></div>
+          <div class="finding-text">
+            <div class="finding-main">${h.ip_address} &mdash; Port ${p.port_number}/${p.protocol}</div>
+            <div class="finding-sub">${p.service_name || "unknown service"}${p.service_version ? " &bull; " + p.service_version : ""}</div>
+          </div>`;
+        feed.appendChild(row);
+      });
+
+      if (ports.length === 0) {
+        const row = document.createElement("div");
+        row.className = "finding-row";
+        row.innerHTML = `
+          <div class="finding-dot info"></div>
+          <div class="finding-text">
+            <div class="finding-main">${h.ip_address}</div>
+            <div class="finding-sub">${h.hostname || "no hostname"} &mdash; no open ports detected</div>
+          </div>`;
+        feed.appendChild(row);
       }
-    }
-    if (pill) {
-      pill.style.display = anyRunning ? "inline" : "none";
-    }
+    });
 
-    // Update stat cards
-    const total     = scans.length;
-    const completed = scans.filter(s => s.status === "completed").length;
-    const running   = scans.filter(s => s.status === "running").length;
-    const spans = document.querySelectorAll(".stat-info span");
-    if (spans[0]) spans[0].textContent = total;
-    if (spans[1]) spans[1].textContent = completed;
-    if (spans[2]) spans[2].textContent = running;
+    document.getElementById("hosts-count").textContent = knownHostIds.size;
   }
 
+  function renderTraffic(findings) {
+    if (!findings || findings.length === 0) return;
+    const feed = document.getElementById("alerts-feed");
+    const empty = feed.querySelector(".panel-empty");
+
+    findings.forEach(f => {
+      if (f.cleartext_creds_found) {
+        if (empty) empty.remove();
+        issueCount++;
+        document.getElementById("stat-issues").textContent = issueCount;
+        const row = document.createElement("div");
+        row.className = "finding-row";
+        row.innerHTML = `
+          <div class="finding-dot critical"></div>
+          <div class="finding-text">
+            <div class="finding-main">Cleartext credentials detected</div>
+            <div class="finding-sub">${f.protocol_summary || "See pcap for details"}</div>
+          </div>
+          <span class="sev-tag critical">Critical</span>`;
+        feed.appendChild(row);
+      } else if (f.protocol_summary) {
+        if (empty) empty.remove();
+        const row = document.createElement("div");
+        row.className = "finding-row";
+        row.innerHTML = `
+          <div class="finding-dot info"></div>
+          <div class="finding-text">
+            <div class="finding-main">Traffic capture complete</div>
+            <div class="finding-sub">${f.protocol_summary}</div>
+          </div>
+          <span class="sev-tag info">Info</span>`;
+        feed.appendChild(row);
+      }
+    });
+
+    document.getElementById("alerts-count").textContent =
+      feed.querySelectorAll(".finding-row").length;
+  }
+
+  // ── Main poll ─────────────────────────────────────────────────────────────
   function poll() {
     fetch("/api/scans")
       .then(r => r.json())
       .then(data => {
-        updateTable(data.scans);
-        updateStatusDot(data.scans);
-      })
-      .catch(() => {});
+        const scans = data.scans || [];
+        const running = scans.find(s => s.status === "running");
+        const total = scans.length;
+        const completed = scans.filter(s => s.status === "completed").length;
+        const runningCount = scans.filter(s => s.status === "running").length;
+
+        document.getElementById("stat-total").textContent     = total;
+        document.getElementById("stat-completed").textContent = completed;
+        document.getElementById("stat-running").textContent   = runningCount;
+
+        if (running && activeScanId !== running.id) {
+          // New scan started
+          activeScanId = running.id;
+          scanStartTs  = running.started_at;
+          knownHostIds = new Set();
+          issueCount   = 0;
+          document.getElementById("stat-issues").textContent = 0;
+          document.getElementById("hosts-feed").innerHTML  = '<div class="panel-empty">Discovering hosts...</div>';
+          document.getElementById("alerts-feed").innerHTML = '<div class="panel-empty">Monitoring traffic...</div>';
+
+          const scanNum = total;
+          document.getElementById("active-scan-label").textContent = "Scan #" + scanNum;
+          document.getElementById("active-target").textContent     = running.target_cidr || "—";
+          document.getElementById("active-started").textContent    = formatEST(running.started_at);
+          document.getElementById("active-interface").textContent  = "wlan0";
+          document.getElementById("active-duration").textContent   = "30s";
+          document.getElementById("active-panel").classList.add("visible");
+          document.getElementById("status-dot").classList.add("scanning");
+          document.getElementById("status-label").textContent = "Scan in progress";
+          document.getElementById("scan-btn").disabled = true;
+
+          if (elapsedTimer) clearInterval(elapsedTimer);
+          elapsedTimer = setInterval(() => {
+            const elapsed = Math.floor(Date.now()/1000 - scanStartTs);
+            document.getElementById("active-elapsed").textContent = elapsed + "s elapsed";
+            updateProgress(elapsed, 60);
+          }, 1000);
+        }
+
+        if (activeScanId) {
+          const thisScan = scans.find(s => s.id === activeScanId);
+          if (thisScan && thisScan.status !== "running") {
+            markScanComplete();
+          }
+
+          // Fetch hosts and traffic for active scan
+          fetch("/api/scan-detail/" + activeScanId)
+            .then(r => r.json())
+            .then(d => {
+              renderHosts(d.hosts || []);
+              renderTraffic(d.traffic || []);
+            }).catch(() => {});
+        }
+      }).catch(() => {});
   }
 
-  setInterval(poll, 5000);
+  // Start polling immediately and every 4 seconds
+  poll();
+  setInterval(poll, 4000);
 </script>
 
 </body>
