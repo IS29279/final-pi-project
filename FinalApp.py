@@ -76,6 +76,26 @@ def get_report(session_id: str):
     return row
 
 
+def get_all_reports():
+    """Fetch all reports joined with their session info, newest first."""
+    import sqlite3
+    from pathlib import Path
+    db_path = Path(__file__).parent / "instance" / "results.db"
+    if not db_path.exists():
+        return []
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    rows = conn.execute("""
+        SELECT r.id, r.session_id, r.file_path, r.format, r.generated_at,
+               s.target_cidr, s.status, s.started_at, s.completed_at
+        FROM reports r
+        JOIN scan_sessions s ON s.id = r.session_id
+        ORDER BY r.generated_at DESC
+    """).fetchall()
+    conn.close()
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # Application factory
 # ---------------------------------------------------------------------------
@@ -167,6 +187,12 @@ def register_routes(app):
     def history():
         scans = get_all_sessions()
         return render_template("history.html", scans=scans)
+
+
+    @app.route("/reports")
+    def reports_page():
+        all_reports = get_all_reports()
+        return render_template("reports.html", reports=all_reports)
 
 
     @app.route("/api/scans")
