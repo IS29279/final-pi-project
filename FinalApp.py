@@ -20,7 +20,15 @@ from utils.db import (
     get_session,
     get_hosts,
     get_ports,
+    complete_session,
 )
+
+# Module-level scan state — tracks the active scan thread and stop flag
+_active_scan = {
+    "session_id": None,
+    "stop_event": None,
+    "thread":     None,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -174,13 +182,46 @@ def register_routes(app):
 
         from orchestrator import run_scan
 
+        stop_event = threading.Event()
+
         def _run():
             with app.app_context():
-                run_scan(target=target, capture_seconds=duration, interface=interface)
+                session_id = run_scan(
+                    target=target,
+                    capture_seconds=duration,
+                    interface=interface,
+                    stop_event=stop_event,
+                )
+                _active_scan["session_id"] = None
+                _active_scan["stop_event"] = None
+                _active_scan["thread"]     = None
 
         t = threading.Thread(target=_run, daemon=True)
+        _active_scan["stop_event"] = stop_event
+        _active_scan["thread"]     = t
         t.start()
         return redirect(url_for("dashboard"))
+
+
+    @app.route("/scan/stop", methods=["POST"])
+    def stop_scan():
+        """Signal the active scan to stop and mark its session as failed."""
+        stop_event = _active_scan.get("stop_event")
+        if stop_event:
+            stop_event.set()
+
+        # Find the running session and mark it failed immediately
+        sessions = get_all_sessions()
+        for s in sessions:
+            if s["status"] == "running":
+                complete_session(s["id"], "failed")
+                break
+
+        _active_scan["session_id"] = None
+        _active_scan["stop_event"] = None
+        _active_scan["thread"]     = None
+
+        return jsonify({"stopped": True})
 
 
     @app.route("/history")
