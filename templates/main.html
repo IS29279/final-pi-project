@@ -167,9 +167,235 @@
     main {
       position: relative;
       z-index: 1;
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 2.5rem 1.5rem 4rem;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    .page-grid {
+      display: grid;
+      grid-template-columns: 260px 1fr 260px;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .center-col { min-width: 0; }
+
+    /* ── Sidebar panels ── */
+    .sidebar-panel {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      position: sticky;
+      top: 1.5rem;
+    }
+
+    .sidebar-header {
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border-dim);
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .sidebar-header .icon {
+      width: 20px; height: 20px;
+      border-radius: 4px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem;
+    }
+
+    .icon.blue  { background: rgba(88,166,255,0.15); color: var(--blue); }
+    .icon.green { background: rgba(86,211,100,0.15); color: var(--green); }
+    .icon.amber { background: rgba(227,179,65,0.15); color: var(--amber); }
+    .icon.red   { background: rgba(248,81,73,0.15);  color: var(--red); }
+
+    .sidebar-body { padding: 0.75rem 1rem; }
+
+    /* ── System health widgets ── */
+    .health-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .health-row:last-child { border-bottom: none; }
+
+    .health-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+    }
+
+    .health-val {
+      font-size: 0.78rem;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .health-val.ok     { color: var(--green); }
+    .health-val.warn   { color: var(--amber); }
+    .health-val.crit   { color: var(--red); }
+    .health-val.miss   { color: var(--red); }
+
+    .mini-bar-wrap {
+      margin-top: 0.75rem;
+    }
+
+    .mini-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.66rem;
+      color: var(--text-muted);
+      margin-bottom: 0.3rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .mini-bar-label span { color: var(--text-secondary); }
+
+    .mini-track {
+      height: 4px;
+      background: var(--bg-raised);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+      border: 1px solid var(--border-dim);
+    }
+
+    .mini-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.8s ease;
+    }
+
+    .mini-fill.cpu    { background: linear-gradient(90deg, var(--blue), #79c0ff); }
+    .mini-fill.mem    { background: linear-gradient(90deg, var(--amber), #f0c060); }
+    .mini-fill.disk   { background: linear-gradient(90deg, var(--green), #7ee787); }
+    .mini-fill.danger { background: linear-gradient(90deg, var(--red), #ff7b72); }
+
+    .tool-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.45rem 0;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 0.78rem;
+    }
+
+    .tool-row:last-child { border-bottom: none; }
+
+    .tool-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .tool-dot.ok   { background: var(--green); box-shadow: 0 0 4px var(--green); }
+    .tool-dot.miss { background: var(--red);   box-shadow: 0 0 4px var(--red); }
+
+    .tool-name { color: var(--text-secondary); flex: 1; }
+    .tool-status { font-size: 0.66rem; letter-spacing: 0.06em; }
+    .tool-status.ok   { color: var(--green); }
+    .tool-status.miss { color: var(--red); }
+
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border-dim);
+      margin: 0.5rem 0;
+    }
+
+    /* ── Network info widgets ── */
+    .net-iface {
+      background: var(--bg-raised);
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      padding: 0.75rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .net-iface:last-child { margin-bottom: 0; }
+
+    .iface-name {
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--blue);
+      margin-bottom: 0.4rem;
+      letter-spacing: 0.06em;
+    }
+
+    .iface-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 0.2rem;
+    }
+
+    .iface-row span { color: var(--text-primary); font-family: var(--font-mono); }
+
+    .suggested-subnet {
+      margin-top: 0.75rem;
+      padding: 0.6rem 0.75rem;
+      background: rgba(88,166,255,0.06);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 5px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .suggested-subnet strong {
+      display: block;
+      color: var(--blue);
+      font-size: 0.78rem;
+      margin-bottom: 0.2rem;
+      letter-spacing: 0.06em;
+    }
+
+    .copy-btn {
+      display: block;
+      width: 100%;
+      margin-top: 0.5rem;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 0.3rem;
+      cursor: pointer;
+      text-align: center;
+      transition: color 0.2s, border-color 0.2s;
+      letter-spacing: 0.04em;
+    }
+
+    .copy-btn:hover { color: var(--blue); border-color: var(--blue); }
+
+    .hostname-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--border-dim);
+      font-size: 0.72rem;
+    }
+
+    .hostname-row .hl { color: var(--text-muted); }
+    .hostname-row .hv { color: var(--text-primary); }
+
+    @media (max-width: 1100px) {
+      .page-grid { grid-template-columns: 1fr; }
+      .sidebar-panel { position: static; }
     }
 
     .section-label {
@@ -612,6 +838,58 @@
   </header>
 
   <main>
+  <div class="page-grid">
+
+    <!-- ── Left sidebar: System Health ── -->
+    <aside>
+      <div class="sidebar-panel">
+        <div class="sidebar-header">
+          <span class="icon green">&#9679;</span>
+          System Health
+        </div>
+        <div class="sidebar-body">
+          <div class="health-row">
+            <span class="health-label">Hostname</span>
+            <span class="health-val" id="sys-hostname">—</span>
+          </div>
+          <div class="health-row">
+            <span class="health-label">Uptime</span>
+            <span class="health-val" id="sys-uptime">—</span>
+          </div>
+
+          <div class="sidebar-divider" style="margin-top:0.75rem"></div>
+
+          <div class="mini-bar-wrap">
+            <div class="mini-bar-label">CPU <span id="cpu-pct">—</span></div>
+            <div class="mini-track"><div class="mini-fill cpu" id="cpu-bar" style="width:0%"></div></div>
+
+            <div class="mini-bar-label">Memory <span id="mem-pct">—</span></div>
+            <div class="mini-track"><div class="mini-fill mem" id="mem-bar" style="width:0%"></div></div>
+
+            <div class="mini-bar-label">Disk <span id="disk-pct">—</span></div>
+            <div class="mini-track"><div class="mini-fill disk" id="disk-bar" style="width:0%"></div></div>
+          </div>
+
+          <div class="sidebar-divider"></div>
+
+          <div style="font-size:0.66rem; letter-spacing:0.1em; text-transform:uppercase; color:var(--text-dim); margin: 0.5rem 0 0.4rem;">Tools</div>
+
+          <div class="tool-row">
+            <div class="tool-dot" id="nmap-dot"></div>
+            <span class="tool-name">nmap</span>
+            <span class="tool-status" id="nmap-tool-status">—</span>
+          </div>
+          <div class="tool-row">
+            <div class="tool-dot" id="tshark-dot"></div>
+            <span class="tool-name">tshark</span>
+            <span class="tool-status" id="tshark-tool-status">—</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Center column ── -->
+    <div class="center-col">
 
     <!-- Scan launcher -->
     <div class="section-label">Initialize scan</div>
@@ -746,6 +1024,36 @@
       <img src="/static/logo.png" alt="Network Lock Security">
     </div>
 
+    </div><!-- end center-col -->
+
+    <!-- ── Right sidebar: Network Info ── -->
+    <aside>
+      <div class="sidebar-panel">
+        <div class="sidebar-header">
+          <span class="icon blue">&#9740;</span>
+          Network Info
+        </div>
+        <div class="sidebar-body" id="net-body">
+          <div class="health-row">
+            <span class="health-label">Hostname</span>
+            <span class="health-val" id="net-hostname">—</span>
+          </div>
+          <div class="sidebar-divider"></div>
+          <div id="iface-list">
+            <div style="font-size:0.75rem; color:var(--text-dim); padding:1rem 0; text-align:center;">Loading interfaces...</div>
+          </div>
+          <div id="subnet-suggest" style="display:none">
+            <div class="suggested-subnet">
+              <strong>&#9658; Suggested scan target</strong>
+              <span id="suggested-cidr">—</span>
+              <button class="copy-btn" onclick="fillSubnet()" id="fill-btn">Use this subnet &#8594;</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div><!-- end page-grid -->
   </main>
 
 <script>
@@ -966,6 +1274,99 @@
   // Start polling immediately and every 4 seconds
   poll();
   setInterval(poll, 4000);
+
+  // ── System health + network info polling ─────────────────────────────────
+  let suggestedSubnet = null;
+
+  function fillSubnet() {
+    if (suggestedSubnet) {
+      document.getElementById("target").value = suggestedSubnet;
+    }
+  }
+
+  function colorClass(pct) {
+    if (pct >= 90) return "danger";
+    if (pct >= 70) return "mem";
+    return null;
+  }
+
+  function pollSystem() {
+    fetch("/api/system")
+      .then(r => r.json())
+      .then(d => {
+        // Hostname + uptime
+        document.getElementById("sys-hostname").textContent = d.hostname || "—";
+        document.getElementById("sys-uptime").textContent   = d.uptime   || "—";
+        document.getElementById("net-hostname").textContent = d.hostname || "—";
+
+        // CPU
+        if (d.cpu !== null && d.cpu !== undefined) {
+          const cpuPct = d.cpu;
+          document.getElementById("cpu-pct").textContent = cpuPct + "%";
+          const cpuBar = document.getElementById("cpu-bar");
+          cpuBar.style.width = cpuPct + "%";
+          cpuBar.className   = "mini-fill " + (cpuPct >= 85 ? "danger" : "cpu");
+        }
+
+        // Memory
+        if (d.memory) {
+          const mp = d.memory.pct;
+          document.getElementById("mem-pct").textContent = mp + "% (" + d.memory.used_mb + "MB / " + d.memory.total_mb + "MB)";
+          const memBar = document.getElementById("mem-bar");
+          memBar.style.width = mp + "%";
+          memBar.className   = "mini-fill " + (mp >= 85 ? "danger" : "mem");
+        }
+
+        // Disk
+        if (d.disk) {
+          const dp = d.disk.pct;
+          document.getElementById("disk-pct").textContent = dp + "% (" + d.disk.used_mb + "MB / " + d.disk.total_mb + "MB)";
+          const diskBar = document.getElementById("disk-bar");
+          diskBar.style.width = dp + "%";
+          diskBar.className   = "mini-fill " + (dp >= 85 ? "danger" : "disk");
+        }
+
+        // Tools
+        const nmapOk   = d.tools && d.tools.nmap;
+        const tsharkOk = d.tools && d.tools.tshark;
+
+        document.getElementById("nmap-dot").className          = "tool-dot " + (nmapOk ? "ok" : "miss");
+        document.getElementById("nmap-tool-status").textContent = nmapOk ? "ready" : "not found";
+        document.getElementById("nmap-tool-status").className   = "tool-status " + (nmapOk ? "ok" : "miss");
+
+        document.getElementById("tshark-dot").className           = "tool-dot " + (tsharkOk ? "ok" : "miss");
+        document.getElementById("tshark-tool-status").textContent = tsharkOk ? "ready" : "not found";
+        document.getElementById("tshark-tool-status").className   = "tool-status " + (tsharkOk ? "ok" : "miss");
+
+        // Network interfaces
+        const ifaces = d.interfaces || [];
+        const list = document.getElementById("iface-list");
+        if (ifaces.length === 0) {
+          list.innerHTML = '<div style="font-size:0.75rem;color:var(--text-dim);padding:0.75rem 0;text-align:center;">No interfaces detected</div>';
+        } else {
+          list.innerHTML = ifaces.map(iface => `
+            <div class="net-iface">
+              <div class="iface-name">${iface.interface}</div>
+              <div class="iface-row">IP <span>${iface.ip}</span></div>
+              <div class="iface-row">CIDR <span>${iface.cidr}</span></div>
+            </div>`).join("");
+
+          // Suggest subnet from first non-loopback interface
+          const primary = ifaces.find(i => i.interface.startsWith("wlan") || i.interface.startsWith("eth")) || ifaces[0];
+          if (primary && primary.cidr) {
+            const parts = primary.ip.split(".");
+            const subnet = parts.slice(0,3).join(".") + ".0/" + primary.mask;
+            suggestedSubnet = subnet;
+            document.getElementById("suggested-cidr").textContent = subnet;
+            document.getElementById("subnet-suggest").style.display = "block";
+          }
+        }
+
+      }).catch(() => {});
+  }
+
+  pollSystem();
+  setInterval(pollSystem, 15000);
 </script>
 
 </body>
