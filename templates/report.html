@@ -18,7 +18,10 @@
 <body>
   <header>
     <h1>PI INTRUSION TESTING APPLIANCE</h1>
-    <nav><a href="/scan/{{ report.scan_id }}">&larr; Scan #{{ report.scan_id }}</a></nav>
+    <nav style="display:flex; gap:1rem; align-items:center;">
+        <a href="/reports" style="color:#8b949e; font-size:0.78rem; text-decoration:none;">Reports</a>
+        <a href="/scan/{{ report['scan_id'] }}" style="color:#8b949e; font-size:0.78rem; text-decoration:none;">&larr; Scan Detail</a>
+      </nav>
   </header>
   <main>
     <p class="meta">Generated {{ report.generated_at.strftime('%Y-%m-%d %H:%M:%S') if report.generated_at else '' }}</p>
