@@ -342,38 +342,37 @@ def run_scan(target: str = DEFAULT_TARGET,
     def stopped():
         return stop_event is not None and stop_event.is_set()
 
+    host_ids   = []
+    finding_id = None
+
     try:
         # Nmap discovery
-        if stopped():
-            raise InterruptedError("Scan stopped by user before discovery")
-        live_ips = run_nmap_discovery(target)
+        if not stopped():
+            live_ips = run_nmap_discovery(target)
+        else:
+            live_ips = []
 
         # Nmap service scan
-        if stopped():
-            raise InterruptedError("Scan stopped by user before service scan")
-        host_ids = run_nmap_service_scan(session_id, live_ips)
+        if not stopped():
+            host_ids = run_nmap_service_scan(session_id, live_ips)
 
         # tshark
-        if stopped():
-            raise InterruptedError("Scan stopped by user before capture")
-        finding_id = run_tshark_capture(
-            session_id=session_id,
-            interface=interface,
-            duration=capture_seconds,
-            stop_event=stop_event,
-        )
+        if not stopped():
+            finding_id = run_tshark_capture(
+                session_id=session_id,
+                interface=interface,
+                duration=capture_seconds,
+                stop_event=stop_event,
+            )
 
-        # Report
-        if stopped():
-            raise InterruptedError("Scan stopped by user before report")
+        # Generate report from whatever was collected (full or partial)
         generate_report(session_id, target, host_ids, finding_id)
 
         complete_session(session_id, "completed")
-        print(f"[scan] Session {session_id} complete.")
-
-    except InterruptedError as e:
-        complete_session(session_id, "failed")
-        print(f"[scan] Session {session_id} stopped early: {e}")
+        if stopped():
+            print(f"[scan] Session {session_id} stopped early — partial results saved.")
+        else:
+            print(f"[scan] Session {session_id} complete.")
 
     except Exception as e:
         complete_session(session_id, "failed")
