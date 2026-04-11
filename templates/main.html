@@ -5,9 +5,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Network Lock Security</title>
-  {% if any_running %}
-  <meta http-equiv="refresh" content="10">
-  {% endif %}
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
@@ -62,7 +59,7 @@
       height: 2px;
       background: linear-gradient(90deg, transparent, var(--blue), transparent);
       animation: scanline 4s linear infinite;
-      z-index: 100;
+      z-index: -1;
       pointer-events: none;
     }
 
@@ -580,7 +577,7 @@
       <div class="history-header">
         <h2>Assessment Log</h2>
         {% if any_running %}
-        <span class="refresh-pill">&#8635; Refreshing every 10s</span>
+        <span class="refresh-pill" id="refresh-pill">&#9900; Live</span>
         {% endif %}
       </div>
 
@@ -631,5 +628,89 @@
     </div>
 
   </main>
+
+<script>
+  // Poll /api/scans every 5 seconds and update table rows without a page reload
+  function formatEST(unix) {
+    if (!unix) return "—";
+    const d = new Date((unix - 18000) * 1000); // subtract 5hr for EST
+    const h = d.getUTCHours();
+    const m = String(d.getUTCMinutes()).padStart(2, "0");
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12 = h % 12 || 12;
+    const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dy = String(d.getUTCDate()).padStart(2, "0");
+    const yr = d.getUTCFullYear();
+    return h12 + ":" + m + " " + ampm + " EST " + mo + "/" + dy + "/" + yr;
+  }
+
+  function badgeClass(status) {
+    if (status === "completed") return "badge badge-completed";
+    if (status === "failed")    return "badge badge-failed";
+    return "badge badge-running";
+  }
+
+  function updateTable(scans) {
+    const tbody = document.querySelector("tbody");
+    if (!tbody) return;
+    const total = scans.length;
+    tbody.innerHTML = scans.map((scan, i) => {
+      const num = total - i;
+      const dur = (scan.completed_at && scan.started_at)
+        ? (scan.completed_at - scan.started_at) + "s"
+        : "—";
+      return \`<tr>
+        <td><span class="scan-num">Scan \${num}</span></td>
+        <td><span class="target-val">\${scan.target_cidr}</span></td>
+        <td><span class="time-val">\${formatEST(scan.started_at)}</span></td>
+        <td><span class="duration-val">\${dur}</span></td>
+        <td><span class="\${badgeClass(scan.status)}">\${scan.status}</span></td>
+        <td><a class="view-btn" href="/scan/\${scan.id}">View &rarr;</a></td>
+      </tr>\`;
+    }).join("");
+  }
+
+  function updateStatusDot(scans) {
+    const dot  = document.querySelector(".dot");
+    const label = document.querySelector(".status-dot");
+    const pill  = document.getElementById("refresh-pill");
+    const anyRunning = scans.some(s => s.status === "running");
+
+    if (dot) {
+      dot.classList.toggle("scanning", anyRunning);
+    }
+    if (label) {
+      const text = label.childNodes[label.childNodes.length - 1];
+      if (text && text.nodeType === 3) {
+        text.textContent = anyRunning ? "Scan in progress" : "System ready";
+      }
+    }
+    if (pill) {
+      pill.style.display = anyRunning ? "inline" : "none";
+    }
+
+    // Update stat cards
+    const total     = scans.length;
+    const completed = scans.filter(s => s.status === "completed").length;
+    const running   = scans.filter(s => s.status === "running").length;
+    const spans = document.querySelectorAll(".stat-info span");
+    if (spans[0]) spans[0].textContent = total;
+    if (spans[1]) spans[1].textContent = completed;
+    if (spans[2]) spans[2].textContent = running;
+  }
+
+  function poll() {
+    fetch("/api/scans")
+      .then(r => r.json())
+      .then(data => {
+        updateTable(data.scans);
+        updateStatusDot(data.scans);
+      })
+      .catch(() => {});
+  }
+
+  setInterval(poll, 5000);
+</script>
+
 </body>
 </html>
