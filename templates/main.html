@@ -53,9 +53,13 @@
       top: 0; left: 0; right: 0;
       height: 2px;
       background: linear-gradient(90deg, transparent, var(--blue), transparent);
-      animation: scanline 4s linear infinite;
+      animation: scanline 4s linear infinite paused;
       z-index: -1;
       pointer-events: none;
+    }
+
+    body.scanning-active::after {
+      animation-play-state: running;
     }
 
     @keyframes scanline {
@@ -183,12 +187,28 @@
 
     /* ── Sidebar panels ── */
     .sidebar-panel {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
+      background: rgba(22,27,34,0.45);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(48,54,61,0.6);
       border-radius: 8px;
       overflow: hidden;
       position: sticky;
       top: 1.5rem;
+    }
+    .sidebar-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(88,166,255,0.25), transparent);
+      animation: scanline 4s linear infinite paused;
+      animation-delay: -0.4s;
+      z-index: 1;
+      pointer-events: none;
+    }
+    body.scanning-active .sidebar-panel::before {
+      animation-play-state: running;
     }
 
     .sidebar-header {
@@ -419,13 +439,31 @@
 
     /* ── Scan launch card ── */
     .scan-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
+      background: rgba(22,27,34,0.55);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(48,54,61,0.7);
       border-top: 2px solid var(--blue);
       border-radius: 0 0 8px 8px;
       padding: 2rem 2.5rem;
       margin-bottom: 2rem;
       animation: fadeUp 0.4s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+    .scan-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(88,166,255,0.6), transparent);
+      animation: scanline 4s linear infinite paused;
+      animation-delay: -0.8s;
+      z-index: 0;
+      pointer-events: none;
+    }
+    body.scanning-active .scan-card::before {
+      animation-play-state: running;
     }
 
     @keyframes fadeUp {
@@ -489,7 +527,9 @@
 
     /* ── Active scan panel ── */
     .active-scan-panel {
-      background: var(--bg-surface);
+      background: rgba(22,27,34,0.5);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(88,166,255,0.25);
       border-left: 3px solid var(--blue);
       border-radius: 0 8px 8px 0;
@@ -497,6 +537,22 @@
       margin-bottom: 2rem;
       display: none;
       animation: fadeUp 0.3s ease both;
+      position: relative;
+      overflow: hidden;
+    }
+    .active-scan-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(88,166,255,0.5), transparent);
+      animation: scanline 4s linear infinite paused;
+      animation-delay: -1.6s;
+      z-index: 0;
+      pointer-events: none;
+    }
+    body.scanning-active .active-scan-panel::before {
+      animation-play-state: running;
     }
 
     .active-scan-panel.visible { display: block; }
@@ -626,10 +682,27 @@
     }
 
     .panel {
-      background: var(--bg-surface);
-      border: 1px solid var(--border);
+      background: rgba(22,27,34,0.5);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(48,54,61,0.65);
       border-radius: 8px;
       overflow: hidden;
+      position: relative;
+    }
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(88,166,255,0.3), transparent);
+      animation: scanline 4s linear infinite paused;
+      animation-delay: -3.2s;
+      z-index: 1;
+      pointer-events: none;
+    }
+    body.scanning-active .panel::before {
+      animation-play-state: running;
     }
 
     .panel-header {
@@ -748,13 +821,31 @@
     }
 
     .stat-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-dim);
+      background: rgba(22,27,34,0.5);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(48,54,61,0.6);
       border-radius: 6px;
       padding: 1rem 1.25rem;
       display: flex;
       align-items: center;
       gap: 0.85rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(88,166,255,0.35), transparent);
+      animation: scanline 4s linear infinite paused;
+      animation-delay: -2.4s;
+      z-index: 0;
+      pointer-events: none;
+    }
+    body.scanning-active .stat-card::before {
+      animation-play-state: running;
     }
 
     .stat-icon {
@@ -1129,6 +1220,7 @@
     document.getElementById("status-dot").classList.remove("scanning");
     document.getElementById("status-label").textContent = "System ready";
     document.getElementById("scan-btn").disabled = false;
+    document.body.classList.remove("scanning-active");
     if (elapsedTimer) { clearInterval(elapsedTimer); elapsedTimer = null; }
   }
 
@@ -1246,6 +1338,7 @@
           document.getElementById("status-dot").classList.add("scanning");
           document.getElementById("status-label").textContent = "Scan in progress";
           document.getElementById("scan-btn").disabled = true;
+          document.body.classList.add("scanning-active");
 
           if (elapsedTimer) clearInterval(elapsedTimer);
           elapsedTimer = setInterval(() => {
