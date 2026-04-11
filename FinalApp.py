@@ -163,11 +163,42 @@ def register_routes(app):
         return redirect(url_for("dashboard"))
 
 
+    @app.route("/history")
+    def history():
+        scans = get_all_sessions()
+        return render_template("history.html", scans=scans)
+
+
     @app.route("/api/scans")
     def api_scans():
         """JSON endpoint for live polling - returns all sessions as dicts."""
         sessions = get_all_sessions()
         return jsonify({"scans": [dict(s) for s in sessions]})
+
+
+    @app.route("/api/scan-detail/<scan_id>")
+    def api_scan_detail(scan_id):
+        """JSON endpoint returning hosts+ports and traffic findings for a session."""
+        hosts = get_hosts(scan_id)
+        hosts_out = []
+        for host in hosts:
+            ports = get_ports(host["id"])
+            hosts_out.append({
+                "id":         host["id"],
+                "ip_address": host["ip_address"],
+                "hostname":   host["hostname"],
+                "os_guess":   host["os_guess"],
+                "ports": [{
+                    "port_number":     p["port_number"],
+                    "protocol":        p["protocol"],
+                    "state":           p["state"],
+                    "service_name":    p["service_name"],
+                    "service_version": p["service_version"],
+                } for p in ports]
+            })
+        traffic = get_traffic_findings(scan_id)
+        traffic_out = [dict(t) for t in traffic]
+        return jsonify({"hosts": hosts_out, "traffic": traffic_out})
 
 
     @app.route("/status")
