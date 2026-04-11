@@ -20,20 +20,30 @@ Usage (from Flask):
 import subprocess
 import datetime
 import time
-import json
 import re
 import os
 import argparse
 
-from models import db, Scan, Host, OpenPort, TrafficEvent, Report
+from utils.db import (
+    init_db,
+    create_session,
+    complete_session,
+    insert_host,
+    insert_port,
+    insert_traffic_finding,
+    complete_traffic_finding,
+    insert_audit_entry,
+    complete_audit_entry,
+    insert_report,
+)
 
 # ---------------------------------------------------------------------------
 # Configuration defaults
 # ---------------------------------------------------------------------------
 
-DEFAULT_TARGET   = "192.168.1.0/24"   # placeholder - update to match actual subnet
-DEFAULT_DURATION = 30                  # tshark capture duration in seconds
-REPORT_DIR       = "reports"           # directory where .txt reports are saved
+DEFAULT_TARGET   = "192.168.1.0/24"
+DEFAULT_DURATION = 30
+REPORT_DIR       = "reports"
 
 
 # ---------------------------------------------------------------------------
@@ -62,15 +72,11 @@ def run_nmap_discovery(target: str) -> list[str]:
     return hosts
 
 
-def run_nmap_service_scan(hosts: list[str]) -> list[dict]:
+def run_nmap_service_scan(session_id: str, hosts: list[str]) -> list[str]:
     """
     Service/version scan against confirmed live hosts.
-    Returns a list of host dicts, each containing a list of open port dicts.
-
-    Each host dict:
-      { "ip": str, "hostname": str, "ports": [ { "port": int, "protocol": str,
-                                                  "state": str, "service": str,
-                                                  "version": str }, ... ] }
+    Writes results directly to the database via Channing's functions.
+    Returns a list of host_ids inserted.
     """
     if not hosts:
         return []
@@ -79,13 +85,38 @@ def run_nmap_service_scan(hosts: list[str]) -> list[dict]:
     targets = " ".join(hosts)
     cmd = f"nmap -sV -T4 --open -oX - {targets}"
 
+    entry_id = insert_audit_entry(session_id, "nmap", cmd)
+
     try:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired:
         print("[nmap] Service scan timed out")
+        complete_audit_entry(entry_id)
         return []
 
-    return _parse_nmap_xml(result.stdout)
+    complete_audit_entry(entry_id)
+
+    parsed = _parse_nmap_xml(result.stdout)
+    host_ids = []
+
+    for hd in parsed:
+        host_id = insert_host(
+            session_id=session_id,
+            ip_address=hd["ip"],
+            hostname=hd["hostname"] or None,
+        )
+        for pd in hd["ports"]:
+            insert_port(
+                host_id=host_id,
+                port_number=pd["port"],
+                protocol=pd["protocol"],
+                state=pd["state"],
+                service_name=pd["service"] or None,
+                service_version=pd["version"] or None,
+            )
+        host_ids.append(host_id)
+
+    return host_ids
 
 
 def _parse_nmap_xml(xml_output: str) -> list[dict]:
@@ -104,7 +135,6 @@ def _parse_nmap_xml(xml_output: str) -> list[dict]:
         return []
 
     for host_el in root.findall("host"):
-        # Only include hosts with status "up"
         status = host_el.find("status")
         if status is None or status.get("state") != "up":
             continue
@@ -156,127 +186,107 @@ def _parse_nmap_xml(xml_output: str) -> list[dict]:
 # tshark helpers
 # ---------------------------------------------------------------------------
 
-def run_tshark_capture(interface: str = "wlan0", duration: int = DEFAULT_DURATION) -> list[dict]:
+def run_tshark_capture(session_id: str, interface: str = "wlan0",
+                       duration: int = DEFAULT_DURATION) -> str:
     """
     Passive traffic capture for `duration` seconds.
-    Returns a list of notable event dicts.
-
-    Each event dict:
-      { "timestamp": str, "src_ip": str, "dst_ip": str,
-        "protocol": str, "info": str, "severity": str }
-
-    Severity levels: "info", "warning", "critical"
+    Saves a pcap file and writes a traffic_finding record.
+    Returns the finding_id.
     """
     print(f"[tshark] Capturing on {interface} for {duration}s")
+
+    os.makedirs(REPORT_DIR, exist_ok=True)
+    pcap_path = os.path.join(REPORT_DIR, f"capture_{session_id}.pcap")
 
     cmd = [
         "tshark",
         "-i", interface,
         "-a", f"duration:{duration}",
-        "-T", "fields",
-        "-e", "frame.time",
-        "-e", "ip.src",
-        "-e", "ip.dst",
-        "-e", "_ws.col.Protocol",
-        "-e", "_ws.col.Info",
-        "-E", "separator=|",
+        "-w", pcap_path,
     ]
 
+    entry_id   = insert_audit_entry(session_id, "tshark", " ".join(cmd))
+    finding_id = insert_traffic_finding(session_id, pcap_path)
+
+    cleartext_found = False
+    protocol_summary = ""
+
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=duration + 30)
+        subprocess.run(cmd, capture_output=True, text=True, timeout=duration + 30)
+
+        # Quick post-capture analysis for cleartext protocols
+        analysis_cmd = [
+            "tshark", "-r", pcap_path,
+            "-T", "fields", "-e", "_ws.col.Protocol",
+        ]
+        analysis = subprocess.run(analysis_cmd, capture_output=True, text=True, timeout=30)
+        protocols = [p.strip().lower() for p in analysis.stdout.splitlines() if p.strip()]
+        cleartext_found = any(p in {"telnet", "ftp", "http"} for p in protocols)
+
+        from collections import Counter
+        counts = Counter(protocols)
+        protocol_summary = ", ".join(f"{p}:{c}" for p, c in counts.most_common(10))
+
     except subprocess.TimeoutExpired:
         print("[tshark] Capture timed out")
-        return []
     except FileNotFoundError:
         print("[tshark] ERROR: tshark not found. Install with: sudo apt install tshark")
-        return []
 
-    return _parse_tshark_output(result.stdout)
+    complete_audit_entry(entry_id)
+    complete_traffic_finding(finding_id, protocol_summary, cleartext_found)
 
-
-def _parse_tshark_output(raw: str) -> list[dict]:
-    """
-    Parse pipe-delimited tshark field output into event dicts.
-    Flags notable protocols and patterns with an appropriate severity.
-    """
-    events = []
-
-    # Protocols that warrant at least a warning
-    sensitive_protocols = {"telnet", "ftp", "http", "dns", "ldap", "snmp"}
-    critical_protocols  = {"telnet", "ftp"}
-
-    for line in raw.splitlines():
-        parts = line.split("|")
-        if len(parts) < 5:
-            continue
-
-        timestamp, src_ip, dst_ip, protocol, info = (p.strip() for p in parts[:5])
-
-        proto_lower = protocol.lower()
-        if proto_lower in critical_protocols:
-            severity = "critical"
-        elif proto_lower in sensitive_protocols:
-            severity = "warning"
-        else:
-            severity = "info"
-
-        # Only record events worth noting (skip pure noise)
-        if severity == "info" and proto_lower not in {"arp", "icmp", "mdns"}:
-            continue
-
-        events.append({
-            "timestamp": timestamp,
-            "src_ip":    src_ip,
-            "dst_ip":    dst_ip,
-            "protocol":  protocol,
-            "info":      info[:500],   # cap length for DB storage
-            "severity":  severity,
-        })
-
-    print(f"[tshark] Captured {len(events)} notable event(s)")
-    return events
+    print(f"[tshark] Capture complete. Cleartext credentials found: {cleartext_found}")
+    return finding_id
 
 
 # ---------------------------------------------------------------------------
 # Report generation
 # ---------------------------------------------------------------------------
 
-def generate_report(scan: Scan, hosts: list[Host], events: list[TrafficEvent]) -> str:
+def generate_report(session_id: str, target: str,
+                    host_ids: list[str], finding_id: str) -> str:
     """
     Build a plain-text summary report from scan results.
-    Returns the report text and also saves it to REPORT_DIR.
+    Saves to REPORT_DIR and records in the reports table.
+    Returns the report file path.
     """
+    from utils.db import get_hosts, get_ports, get_connection
+
     lines = []
     sep = "-" * 60
 
-    lines.append("PI INTRUSION TESTING APPLIANCE")
+    lines.append("NETWORK LOCK SECURITY")
     lines.append("Network Security Assessment Report")
     lines.append(sep)
-    lines.append(f"Scan ID    : {scan.id}")
-    lines.append(f"Target     : {scan.target}")
-    lines.append(f"Started    : {scan.started_at}")
-    lines.append(f"Completed  : {scan.completed_at}")
-    lines.append(f"Status     : {scan.status}")
+    lines.append(f"Session ID : {session_id}")
+    lines.append(f"Target     : {target}")
+    lines.append(f"Generated  : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(sep)
 
+    hosts = get_hosts(session_id)
     lines.append(f"\nHOSTS DISCOVERED ({len(hosts)} total)\n")
     for host in hosts:
-        lines.append(f"  {host.ip_address}  {host.hostname or '(no hostname)'}")
-        for port in host.open_ports:
-            lines.append(f"    {port.port}/{port.protocol}  {port.service}  {port.version or ''}")
+        lines.append(f"  {host['ip_address']}  {host['hostname'] or '(no hostname)'}")
+        ports = get_ports(host["id"])
+        for port in ports:
+            lines.append(f"    {port['port_number']}/{port['protocol']}  "
+                         f"{port['service_name'] or ''}  {port['service_version'] or ''}")
         lines.append("")
 
     lines.append(sep)
 
-    warning_events  = [e for e in events if e.severity in ("warning", "critical")]
-    lines.append(f"\nNOTABLE TRAFFIC EVENTS ({len(warning_events)} flagged)\n")
-    if warning_events:
-        for ev in warning_events:
-            lines.append(f"  [{ev.severity.upper()}] {ev.protocol}  {ev.src_ip} -> {ev.dst_ip}")
-            lines.append(f"    {ev.info}")
-            lines.append("")
-    else:
-        lines.append("  No high-severity traffic events detected.\n")
+    # Pull traffic finding
+    with get_connection() as conn:
+        finding = conn.execute(
+            "SELECT * FROM traffic_findings WHERE id = ?", (finding_id,)
+        ).fetchone()
+
+    if finding:
+        lines.append("\nTRAFFIC ANALYSIS\n")
+        lines.append(f"  PCAP file        : {finding['pcap_path']}")
+        lines.append(f"  Protocol summary : {finding['protocol_summary'] or 'N/A'}")
+        lines.append(f"  Cleartext creds  : {'YES - REVIEW IMMEDIATELY' if finding['cleartext_creds_found'] else 'None detected'}")
+        lines.append("")
 
     lines.append(sep)
     lines.append("\nEND OF REPORT\n")
@@ -284,12 +294,13 @@ def generate_report(scan: Scan, hosts: list[Host], events: list[TrafficEvent]) -
     report_text = "\n".join(lines)
 
     os.makedirs(REPORT_DIR, exist_ok=True)
-    report_path = os.path.join(REPORT_DIR, f"scan_{scan.id}.txt")
+    report_path = os.path.join(REPORT_DIR, f"report_{session_id}.txt")
     with open(report_path, "w") as f:
         f.write(report_text)
 
+    insert_report(session_id, report_path, "text")
     print(f"[report] Saved to {report_path}")
-    return report_text
+    return report_path
 
 
 # ---------------------------------------------------------------------------
@@ -298,100 +309,45 @@ def generate_report(scan: Scan, hosts: list[Host], events: list[TrafficEvent]) -
 
 def run_scan(target: str = DEFAULT_TARGET,
              capture_seconds: int = DEFAULT_DURATION,
-             interface: str = "wlan0") -> int:
+             interface: str = "wlan0") -> str:
     """
     Full scan workflow:
-      1. Create a Scan record in the database
-      2. Run Nmap discovery, then service scan
-      3. Run tshark capture in parallel (simple sequential for Sprint 2)
-      4. Persist all results to the database
-      5. Generate and store a text report
-      6. Return the scan ID
-
-    This function is called directly by Flask.
+      1. Create a session record in the database
+      2. Run Nmap discovery then service scan
+      3. Run tshark passive capture
+      4. Generate and store a text report
+      5. Mark session complete
+      6. Return the session ID
     """
-    # 1. Open scan record
-    scan = Scan(
-        target       = target,
-        started_at   = datetime.datetime.utcnow(),
-        status       = "running",
-    )
-    db.session.add(scan)
-    db.session.commit()
-    print(f"[scan] Started scan ID {scan.id} against {target}")
+    init_db()
+
+    session_id = create_session(target)
+    print(f"[scan] Started session {session_id} against {target}")
 
     try:
-        # 2. Nmap
-        live_ips    = run_nmap_discovery(target)
-        host_data   = run_nmap_service_scan(live_ips)
+        # Nmap
+        live_ips = run_nmap_discovery(target)
+        host_ids = run_nmap_service_scan(session_id, live_ips)
 
-        # Persist hosts and ports
-        host_records = []
-        for hd in host_data:
-            host = Host(
-                scan_id    = scan.id,
-                ip_address = hd["ip"],
-                hostname   = hd["hostname"] or None,
-            )
-            db.session.add(host)
-            db.session.flush()   # get host.id before adding ports
-
-            for pd in hd["ports"]:
-                port = OpenPort(
-                    host_id  = host.id,
-                    port     = pd["port"],
-                    protocol = pd["protocol"],
-                    state    = pd["state"],
-                    service  = pd["service"],
-                    version  = pd["version"] or None,
-                )
-                db.session.add(port)
-
-            host_records.append(host)
-
-        db.session.commit()
-
-        # 3. tshark
-        raw_events   = run_tshark_capture(interface=interface, duration=capture_seconds)
-        event_records = []
-        for ev in raw_events:
-            event = TrafficEvent(
-                scan_id   = scan.id,
-                timestamp = ev["timestamp"],
-                src_ip    = ev["src_ip"],
-                dst_ip    = ev["dst_ip"],
-                protocol  = ev["protocol"],
-                info      = ev["info"],
-                severity  = ev["severity"],
-            )
-            db.session.add(event)
-            event_records.append(event)
-
-        db.session.commit()
-
-        # 4. Report
-        report_text = generate_report(scan, host_records, event_records)
-        report = Report(
-            scan_id     = scan.id,
-            generated_at = datetime.datetime.utcnow(),
-            content     = report_text,
+        # tshark
+        finding_id = run_tshark_capture(
+            session_id=session_id,
+            interface=interface,
+            duration=capture_seconds,
         )
-        db.session.add(report)
 
-        # 5. Mark scan complete
-        scan.completed_at = datetime.datetime.utcnow()
-        scan.status       = "complete"
-        db.session.commit()
+        # Report
+        generate_report(session_id, target, host_ids, finding_id)
 
-        print(f"[scan] Scan {scan.id} complete.")
+        complete_session(session_id, "completed")
+        print(f"[scan] Session {session_id} complete.")
 
     except Exception as e:
-        scan.status = "failed"
-        db.session.commit()
-        print(f"[scan] Scan {scan.id} FAILED: {e}")
+        complete_session(session_id, "failed")
+        print(f"[scan] Session {session_id} FAILED: {e}")
         raise
 
-    return scan.id
+    return session_id
 
 
 # ---------------------------------------------------------------------------
@@ -405,8 +361,4 @@ if __name__ == "__main__":
     parser.add_argument("--interface", default="wlan0",          help="Network interface for tshark")
     args = parser.parse_args()
 
-    # When run directly, set up a minimal Flask app context so SQLAlchemy works
-    from FinalApp import create_app
-    app = create_app()
-    with app.app_context():
-        run_scan(target=args.target, capture_seconds=args.duration, interface=args.interface)
+    run_scan(target=args.target, capture_seconds=args.duration, interface=args.interface)
