@@ -163,6 +163,13 @@ def register_routes(app):
         return redirect(url_for("dashboard"))
 
 
+    @app.route("/api/scans")
+    def api_scans():
+        """JSON endpoint for live polling - returns all sessions as dicts."""
+        sessions = get_all_sessions()
+        return jsonify({"scans": [dict(s) for s in sessions]})
+
+
     @app.route("/status")
     def status():
         sessions = get_all_sessions()
