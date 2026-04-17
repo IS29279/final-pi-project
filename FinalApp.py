@@ -464,7 +464,8 @@ def register_routes(app):
 
 # ---------------------------------------------------------------------------
 # Added by Channing - Beginning of section added for testing.
-# Extended in Sprint 2 to cover traffic findings and info-tier flags.
+# Extended in Sprint 2 to cover traffic findings, info-tier flags, and
+# search terms (CVE + attack name + MITRE ATT&CK ID) on every flag.
 # ---------------------------------------------------------------------------
 
 # ── Findings Flagging ────────────────────────────────────────────────────
@@ -495,50 +496,80 @@ def register_routes(app):
 #
 # Returns a list of flag dicts:
 #   {
-#       "host":     "192.168.1.10" or "network" (for traffic flags),
-#       "port":     22 or None (for traffic flags),
-#       "severity": "critical" | "high" | "medium" | "info",
-#       "reason":   "SSH exposed on default port 22",
+#       "host":         "192.168.1.10" or "network" (for traffic flags),
+#       "port":         22 or None (for traffic flags),
+#       "severity":     "critical" | "high" | "medium" | "info",
+#       "reason":       "SSH exposed on default port 22",
+#       "search_terms": ["SSH brute force", "T1110.001", "T1021.004"],
 #   }
+#
+# Search terms mix three styles where applicable:
+#   - Attack or technique name (readable, good for Googling)
+#   - CVE number (specific vulnerability reference)
+#   - MITRE ATT&CK technique ID (industry-standard mapping)
 
+# Each entry is (severity, reason, search_terms).
 FLAGGED_PORTS = {
-    21:   ("high",     "FTP is unencrypted and should not be exposed"),
-    23:   ("critical", "Telnet is plaintext — credentials sent in the clear"),
-    445:  ("critical", "SMB exposed — high-value target for ransomware and lateral movement"),
-    3389: ("critical", "RDP exposed — common brute-force and ransomware entry point"),
-    22:   ("high",     "SSH exposed on default port 22"),
-    80:   ("medium",   "HTTP (unencrypted web) is exposed"),
-    8080: ("medium",   "HTTP alternate port exposed — often a misconfigured dev server"),
-    2049: ("high",     "NFS exposed — can allow unauthenticated file system access"),
-    5900: ("high",     "VNC exposed — remote desktop with historically weak auth"),
-    1433: ("high",     "MSSQL database port exposed externally"),
-    3306: ("high",     "MySQL database port exposed externally"),
-    5432: ("high",     "PostgreSQL database port exposed externally"),
+    21:   ("high",     "FTP is unencrypted and should not be exposed",
+           ["FTP credential sniffing", "T1040", "T1021"]),
+    23:   ("critical", "Telnet is plaintext — credentials sent in the clear",
+           ["Telnet credential sniffing", "T1040", "cleartext authentication"]),
+    445:  ("critical", "SMB exposed — high-value target for ransomware and lateral movement",
+           ["SMB ransomware", "EternalBlue CVE-2017-0144", "T1021.002"]),
+    3389: ("critical", "RDP exposed — common brute-force and ransomware entry point",
+           ["RDP brute force", "BlueKeep CVE-2019-0708", "T1021.001"]),
+    22:   ("high",     "SSH exposed on default port 22",
+           ["SSH brute force", "T1110.001", "T1021.004"]),
+    80:   ("medium",   "HTTP (unencrypted web) is exposed",
+           ["HTTP man-in-the-middle", "session hijacking", "T1557"]),
+    8080: ("medium",   "HTTP alternate port exposed — often a misconfigured dev server",
+           ["exposed dev server", "unauthenticated admin panel", "T1190"]),
+    2049: ("high",     "NFS exposed — can allow unauthenticated file system access",
+           ["NFS misconfiguration", "no_root_squash exploit", "T1078"]),
+    5900: ("high",     "VNC exposed — remote desktop with historically weak auth",
+           ["VNC brute force", "VNC authentication bypass", "T1021.005"]),
+    1433: ("high",     "MSSQL database port exposed externally",
+           ["MSSQL brute force", "xp_cmdshell exploit", "T1078"]),
+    3306: ("high",     "MySQL database port exposed externally",
+           ["MySQL brute force", "MySQL privilege escalation", "T1078"]),
+    5432: ("high",     "PostgreSQL database port exposed externally",
+           ["PostgreSQL brute force", "database enumeration", "T1078"]),
 }
 
+# Each entry is (substring, severity, reason, search_terms).
 FLAGGED_VERSION_SUBSTRINGS = [
-    ("OpenSSH 5.", "critical", "Outdated OpenSSH version with known critical vulnerabilities"),
-    ("OpenSSH 6.", "high",     "Outdated OpenSSH version — upgrade to 8.x or later"),
-    ("Apache/2.2", "high",     "End-of-life Apache 2.2 — no longer receives security patches"),
-    ("IIS/6.0",    "critical", "IIS 6.0 is end-of-life and has known remote code execution CVEs"),
-    ("vsftpd 2.3.4", "critical", "vsftpd 2.3.4 contains a backdoor (CVE-2011-2523)"),
-    ("OpenSSL/1.0", "high",    "Outdated OpenSSL 1.0.x — vulnerable to multiple CVEs"),
+    ("OpenSSH 5.", "critical", "Outdated OpenSSH version with known critical vulnerabilities",
+     ["OpenSSH 5 CVE", "CVE-2016-0777", "user enumeration"]),
+    ("OpenSSH 6.", "high",     "Outdated OpenSSH version — upgrade to 8.x or later",
+     ["OpenSSH 6 CVE", "CVE-2016-6210", "user enumeration"]),
+    ("Apache/2.2", "high",     "End-of-life Apache 2.2 — no longer receives security patches",
+     ["Apache 2.2 end of life", "CVE-2017-15710", "unpatched web server"]),
+    ("IIS/6.0",    "critical", "IIS 6.0 is end-of-life and has known remote code execution CVEs",
+     ["IIS 6.0 RCE", "CVE-2017-7269", "WebDAV exploit"]),
+    ("vsftpd 2.3.4", "critical", "vsftpd 2.3.4 contains a backdoor (CVE-2011-2523)",
+     ["vsftpd 2.3.4 backdoor", "CVE-2011-2523", "Metasploit vsftpd_234_backdoor"]),
+    ("OpenSSL/1.0", "high",    "Outdated OpenSSL 1.0.x — vulnerable to multiple CVEs",
+     ["OpenSSL 1.0 Heartbleed", "CVE-2014-0160", "CVE-2016-2107"]),
 ]
 
 # ── Info-tier emitters (Sprint 2) ────────────────────────────────────────
 # Ports that are inherently "good" to see — encrypted/modern.
-# Emits an info flag so the report has a positive finding to show on
-# well-configured hosts, rather than just an empty list.
+# Each entry is (reason, search_terms).
 INFO_PORTS = {
-    443: "HTTPS present — encrypted web traffic",
-    993: "IMAPS present — encrypted mail retrieval",
-    995: "POP3S present — encrypted mail retrieval",
+    443: ("HTTPS present — encrypted web traffic",
+          ["TLS hardening", "HSTS configuration", "Mozilla SSL Configuration Generator"]),
+    993: ("IMAPS present — encrypted mail retrieval",
+          ["IMAPS best practices", "mail server TLS configuration"]),
+    995: ("POP3S present — encrypted mail retrieval",
+          ["POP3S best practices", "mail server TLS configuration"]),
 }
 
 # Modern SSH version substrings — if SSH is seen running one of these,
 # emit an info flag (the default-port high-severity flag for port 22 still
 # fires separately — a defensive version doesn't cancel out default-port exposure).
 MODERN_SSH_SUBSTRINGS = ("OpenSSH 8.", "OpenSSH 9.", "OpenSSH 10.")
+
+MODERN_SSH_INFO_TERMS = ["SSH hardening", "SSH non-standard port", "SSH key-only auth"]
 
 # Protocols we consider cleartext for the purposes of traffic flagging.
 # Mirrors the set used by run_tshark_capture() in orchestrator.py.
@@ -556,33 +587,37 @@ def _flag_port_findings(findings: list) -> list:
 
         # ── Port-based (critical/high/medium) ────────────────────────────
         if port_number in FLAGGED_PORTS:
-            severity, reason = FLAGGED_PORTS[port_number]
+            severity, reason, search_terms = FLAGGED_PORTS[port_number]
             flags.append({
-                "host":     host,
-                "port":     port_number,
-                "severity": severity,
-                "reason":   reason,
+                "host":         host,
+                "port":         port_number,
+                "severity":     severity,
+                "reason":       reason,
+                "search_terms": list(search_terms),
             })
 
         # ── Version string (critical/high) ───────────────────────────────
-        for substring, severity, reason in FLAGGED_VERSION_SUBSTRINGS:
+        for substring, severity, reason, search_terms in FLAGGED_VERSION_SUBSTRINGS:
             if substring.lower() in service_version.lower():
                 flags.append({
-                    "host":     host,
-                    "port":     port_number,
-                    "severity": severity,
-                    "reason":   reason,
+                    "host":         host,
+                    "port":         port_number,
+                    "severity":     severity,
+                    "reason":       reason,
+                    "search_terms": list(search_terms),
                 })
                 break  # one version flag per finding
 
         # ── Info-tier: encrypted/modern services ─────────────────────────
         # Port-based info flag (HTTPS, IMAPS, etc.)
         if port_number in INFO_PORTS:
+            reason, search_terms = INFO_PORTS[port_number]
             flags.append({
-                "host":     host,
-                "port":     port_number,
-                "severity": "info",
-                "reason":   INFO_PORTS[port_number],
+                "host":         host,
+                "port":         port_number,
+                "severity":     "info",
+                "reason":       reason,
+                "search_terms": list(search_terms),
             })
 
         # Modern SSH on a NON-standard port is worth noting positively.
@@ -592,10 +627,11 @@ def _flag_port_findings(findings: list) -> list:
             m.lower() in service_version.lower() for m in MODERN_SSH_SUBSTRINGS
         ):
             flags.append({
-                "host":     host,
-                "port":     port_number,
-                "severity": "info",
-                "reason":   "SSH on non-standard port with modern version — defensive configuration",
+                "host":         host,
+                "port":         port_number,
+                "severity":     "info",
+                "reason":       "SSH on non-standard port with modern version — defensive configuration",
+                "search_terms": list(MODERN_SSH_INFO_TERMS),
             })
 
     return flags
@@ -613,7 +649,7 @@ def _flag_traffic_findings(traffic: list) -> list:
     An empty or missing summary means nothing useful was captured — no flag.
 
     Accepts either plain dicts (from tests) or sqlite3.Row objects (from
-    live callers). _row_field() handles both shapes transparently.
+    live callers). Handles both shapes transparently.
     """
     flags = []
 
@@ -629,10 +665,11 @@ def _flag_traffic_findings(traffic: list) -> list:
 
         if cleartext:
             flags.append({
-                "host":     "network",
-                "port":     None,
-                "severity": "critical",
-                "reason":   "Cleartext credentials observed in capture — live evidence of unencrypted login traffic",
+                "host":         "network",
+                "port":         None,
+                "severity":     "critical",
+                "reason":       "Cleartext credentials observed in capture — live evidence of unencrypted login traffic",
+                "search_terms": ["packet sniffing credentials", "Wireshark credential analysis", "T1040"],
             })
             continue  # don't also emit a medium when we've already flagged critical
 
@@ -642,17 +679,19 @@ def _flag_traffic_findings(traffic: list) -> list:
 
         if cleartext_in_summary:
             flags.append({
-                "host":     "network",
-                "port":     None,
-                "severity": "medium",
-                "reason":   "Unencrypted traffic observed in capture (HTTP/FTP/Telnet) — confirms plaintext protocols are in active use",
+                "host":         "network",
+                "port":         None,
+                "severity":     "medium",
+                "reason":       "Unencrypted traffic observed in capture (HTTP/FTP/Telnet) — confirms plaintext protocols are in active use",
+                "search_terms": ["network traffic encryption", "deprecate plaintext protocols", "T1040"],
             })
         elif summary.strip():
             flags.append({
-                "host":     "network",
-                "port":     None,
-                "severity": "info",
-                "reason":   "Only encrypted protocols observed during capture — baseline confirmation",
+                "host":         "network",
+                "port":         None,
+                "severity":     "info",
+                "reason":       "Only encrypted protocols observed during capture — baseline confirmation",
+                "search_terms": ["network encryption baseline", "TLS adoption"],
             })
         # else: empty summary → nothing captured, no flag
 
@@ -668,7 +707,7 @@ def flag_findings(findings: list, traffic_findings: list = None) -> list:
         traffic_findings: optional list of traffic_findings rows for the same session.
 
     Returns:
-        list of flag dicts with keys: host, port, severity, reason.
+        list of flag dicts with keys: host, port, severity, reason, search_terms.
     """
     flags = _flag_port_findings(findings)
 
