@@ -5,7 +5,7 @@ Team 3 / ITP 258 Sprint 2
 
 Routes:
   GET  /                  - dashboard: list all scans
-  GET  /scan/<id>         - scan detail: hosts, ports, traffic events
+  GET  /scan/<id>         - scan detail: hosts, ports, traffic events, flagged concerns
   GET  /scan/<id>/report  - view the generated text report for a scan
   POST /scan/start        - kick off a new scan (accepts target and duration)
   GET  /status            - JSON health check endpoint
@@ -104,6 +104,39 @@ def get_all_reports():
     return rows
 
 
+def _build_port_findings_for_flags(hosts_with_ports):
+    """
+    Flatten the nested hosts/ports structure into the flat list of dicts
+    that flag_findings() expects. Each dict carries the host IP alongside
+    the port fields so flags can be attributed back to the right host.
+    """
+    findings = []
+    for item in hosts_with_ports:
+        host_ip = item["host"]["ip_address"]
+        for port in item["ports"]:
+            findings.append({
+                "host":            host_ip,
+                "port_number":     port["port_number"],
+                "protocol":        port["protocol"],
+                "state":           port["state"],
+                "service_name":    port["service_name"],
+                "service_version": port["service_version"],
+            })
+    return findings
+
+
+def _row_field(row, key):
+    """
+    Safely read a field from either a sqlite3.Row or a dict.
+    sqlite3.Row supports [key] but not .get(), so flag_findings() callers
+    that pass Row objects straight through work the same as plain dicts.
+    """
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return None
+
+
 # ---------------------------------------------------------------------------
 # Application factory
 # ---------------------------------------------------------------------------
@@ -149,15 +182,25 @@ def register_routes(app):
         scan = get_session(scan_id)
         if not scan:
             abort(404)
+
         hosts = get_hosts(scan_id)
         hosts_with_ports = []
         for host in hosts:
             ports = get_ports(host["id"])
             hosts_with_ports.append({"host": host, "ports": ports})
         traffic = get_traffic_findings(scan_id)
-        return render_template("scan_detail.html", scan=scan,
+
+        # ── Sprint 2: compute flagged concerns for the template ──────────
+        # Flatten hosts+ports into the shape flag_findings() expects, then
+        # pass the traffic rows through so traffic-based flags also appear.
+        port_findings = _build_port_findings_for_flags(hosts_with_ports)
+        flags = flag_findings(port_findings, list(traffic))
+
+        return render_template("scan_detail.html",
+                               scan=scan,
                                hosts_with_ports=hosts_with_ports,
-                               traffic=traffic)
+                               traffic=traffic,
+                               flags=flags)
 
 
     @app.route("/scan/<scan_id>/report")
@@ -568,12 +611,21 @@ def _flag_traffic_findings(traffic: list) -> list:
       - else, non-empty summary       → info    ("only encrypted protocols observed")
 
     An empty or missing summary means nothing useful was captured — no flag.
+
+    Accepts either plain dicts (from tests) or sqlite3.Row objects (from
+    live callers). _row_field() handles both shapes transparently.
     """
     flags = []
 
     for row in traffic:
-        cleartext = bool(row.get("cleartext_creds_found"))
-        summary   = (row.get("protocol_summary") or "").lower()
+        # dict.get() works everywhere, sqlite3.Row needs bracket access —
+        # try the dict path first and fall back to Row-style indexing.
+        if hasattr(row, "get"):
+            cleartext = bool(row.get("cleartext_creds_found"))
+            summary   = (row.get("protocol_summary") or "").lower()
+        else:
+            cleartext = bool(_row_field(row, "cleartext_creds_found"))
+            summary   = (_row_field(row, "protocol_summary") or "").lower()
 
         if cleartext:
             flags.append({
