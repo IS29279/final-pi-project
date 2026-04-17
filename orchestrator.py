@@ -7,7 +7,7 @@ Responsibilities:
   - Run Nmap host discovery and port/service scan against a target subnet
   - Run tshark passive capture in parallel
   - Parse results and write structured records to the SQLite database
-  - Produce a simple text summary report
+  - Produce a text summary report including flagged concerns
 
 Usage (direct):
   python orchestrator.py --target 192.168.1.0/24 --duration 30
@@ -261,8 +261,15 @@ def generate_report(session_id: str, target: str,
     Build a plain-text summary report from scan results.
     Saves to REPORT_DIR and records in the reports table.
     Returns the report file path.
+
+    Sprint 2: includes a "Flagged Concerns" section grouped by severity
+    at the top of the report, followed by the hosts and traffic breakdown.
     """
     from utils.db import get_hosts, get_ports, get_connection
+    # flag_findings lives in FinalApp to keep it alongside its constants
+    # (FLAGGED_PORTS, INFO_PORTS, etc.). Importing at call time avoids a
+    # circular import on startup.
+    from FinalApp import flag_findings
 
     lines = []
     sep = "-" * 60
@@ -275,11 +282,65 @@ def generate_report(session_id: str, target: str,
     lines.append(f"Generated  : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append(sep)
 
+    # ── Gather data once, use it for both flags and the host/traffic sections ─
     hosts = get_hosts(session_id)
-    lines.append(f"\nHOSTS DISCOVERED ({len(hosts)} total)\n")
+
+    # Flatten hosts+ports into the flat dict shape flag_findings() expects
+    port_findings = []
+    hosts_with_ports = []
     for host in hosts:
+        host_ports = get_ports(host["id"])
+        hosts_with_ports.append((host, host_ports))
+        for port in host_ports:
+            port_findings.append({
+                "host":            host["ip_address"],
+                "port_number":     port["port_number"],
+                "protocol":        port["protocol"],
+                "state":           port["state"],
+                "service_name":    port["service_name"],
+                "service_version": port["service_version"],
+            })
+
+    # Pull traffic finding (may be None if the capture never ran)
+    with get_connection() as conn:
+        finding = conn.execute(
+            "SELECT * FROM traffic_findings WHERE id = ?", (finding_id,)
+        ).fetchone() if finding_id else None
+
+    traffic_findings = [finding] if finding else []
+
+    # ── Flagged Concerns section ────────────────────────────────────────
+    flags = flag_findings(port_findings, traffic_findings)
+
+    lines.append("\nFLAGGED CONCERNS\n")
+    if flags:
+        severity_order = ["critical", "high", "medium", "info"]
+        total_by_sev = {sev: sum(1 for f in flags if f["severity"] == sev)
+                        for sev in severity_order}
+        summary_bits = [f"{total_by_sev[s]} {s}" for s in severity_order if total_by_sev[s]]
+        lines.append(f"  Summary: {', '.join(summary_bits)}")
+        lines.append("")
+
+        for sev in severity_order:
+            group = [f for f in flags if f["severity"] == sev]
+            if not group:
+                continue
+            lines.append(f"  [{sev.upper()}]  ({len(group)} finding{'s' if len(group) != 1 else ''})")
+            for flag in group:
+                target_str = flag["host"]
+                if flag["port"] is not None:
+                    target_str = f"{flag['host']}:{flag['port']}"
+                lines.append(f"    - {target_str:<24}  {flag['reason']}")
+            lines.append("")
+    else:
+        lines.append("  No concerns flagged for this scan.\n")
+
+    lines.append(sep)
+
+    # ── Hosts breakdown ─────────────────────────────────────────────────
+    lines.append(f"\nHOSTS DISCOVERED ({len(hosts)} total)\n")
+    for host, ports in hosts_with_ports:
         lines.append(f"  {host['ip_address']}  {host['hostname'] or '(no hostname)'}")
-        ports = get_ports(host["id"])
         for port in ports:
             lines.append(f"    {port['port_number']}/{port['protocol']}  "
                          f"{port['service_name'] or ''}  {port['service_version'] or ''}")
@@ -287,12 +348,7 @@ def generate_report(session_id: str, target: str,
 
     lines.append(sep)
 
-    # Pull traffic finding
-    with get_connection() as conn:
-        finding = conn.execute(
-            "SELECT * FROM traffic_findings WHERE id = ?", (finding_id,)
-        ).fetchone()
-
+    # ── Traffic analysis ────────────────────────────────────────────────
     if finding:
         lines.append("\nTRAFFIC ANALYSIS\n")
         lines.append(f"  PCAP file        : {finding['pcap_path']}")
