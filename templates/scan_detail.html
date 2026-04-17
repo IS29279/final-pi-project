@@ -229,7 +229,7 @@
 
     .flag-row {
       display: grid;
-      grid-template-columns: 85px 170px 1fr;
+      grid-template-columns: 85px 170px 1fr auto;
       gap: 1rem;
       padding: 0.65rem 0.85rem;
       border-left: 3px solid transparent;
@@ -255,6 +255,90 @@
       font-size: 0.82rem;
       color: var(--text-secondary);
       line-height: 1.4;
+    }
+
+    /* ── Search term hover-reveal ─────────────────────────────────────── */
+    /*
+      A small "search" affordance sits at the end of each flag row. On hover
+      (or tap on mobile), it expands a tooltip listing the actionable search
+      terms — CVEs, attack names, MITRE IDs. Pure CSS, no JS.
+    */
+    .search-affordance {
+      position: relative;
+      font-family: var(--font-display);
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      cursor: help;
+      padding: 0.2rem 0.55rem;
+      border: 1px dashed var(--border-dim);
+      border-radius: 3px;
+      transition: color 0.2s, border-color 0.2s;
+      white-space: nowrap;
+    }
+    .search-affordance:hover,
+    .search-affordance:focus {
+      color: var(--blue);
+      border-color: rgba(88,166,255,0.4);
+      border-style: solid;
+      outline: none;
+    }
+    .search-affordance::before {
+      content: '\01F50D';
+      margin-right: 0.3rem;
+      font-size: 0.8em;
+      filter: grayscale(1) brightness(1.5);
+    }
+    .search-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 0;
+      background: #1c2128;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--blue);
+      border-radius: 4px;
+      padding: 0.65rem 0.8rem;
+      width: 260px;
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(4px);
+      transition: opacity 0.15s, visibility 0.15s, transform 0.15s;
+      pointer-events: none;
+      z-index: 20;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+      white-space: normal;
+      text-align: left;
+    }
+    .search-affordance:hover .search-tooltip,
+    .search-affordance:focus .search-tooltip {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+    }
+    .search-tooltip-title {
+      display: block;
+      font-family: var(--font-display);
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.4rem;
+    }
+    .search-term-pill {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      background: rgba(88,166,255,0.06);
+      border: 1px solid rgba(88,166,255,0.2);
+      border-radius: 3px;
+      padding: 0.15rem 0.45rem;
+      margin: 0.15rem 0.2rem 0.15rem 0;
+      letter-spacing: 0;
+      text-transform: none;
     }
 
     .empty-flags {
@@ -392,6 +476,19 @@
                   {{ flag['host'] }}{% if flag['port'] %}<span class="port"> :{{ flag['port'] }}</span>{% endif %}
                 </div>
                 <div class="flag-reason">{{ flag['reason'] }}</div>
+                <div>
+                  {% if flag.get('search_terms') %}
+                  <span class="search-affordance" tabindex="0">
+                    Search
+                    <span class="search-tooltip">
+                      <span class="search-tooltip-title">Search terms</span>
+                      {% for term in flag['search_terms'] %}
+                        <span class="search-term-pill">{{ term }}</span>
+                      {% endfor %}
+                    </span>
+                  </span>
+                  {% endif %}
+                </div>
               </div>
               {% endfor %}
             </div>
