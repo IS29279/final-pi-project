@@ -7,7 +7,7 @@ Responsibilities:
   - Run Nmap host discovery and port/service scan against a target subnet
   - Run tshark passive capture in parallel
   - Parse results and write structured records to the SQLite database
-  - Produce a text summary report including flagged concerns
+  - Produce a text summary report including flagged concerns with search terms
 
 Usage (direct):
   python orchestrator.py --target 192.168.1.0/24 --duration 30
@@ -263,7 +263,8 @@ def generate_report(session_id: str, target: str,
     Returns the report file path.
 
     Sprint 2: includes a "Flagged Concerns" section grouped by severity
-    at the top of the report, followed by the hosts and traffic breakdown.
+    at the top of the report, with search terms under each flag, followed
+    by the hosts and traffic breakdown.
     """
     from utils.db import get_hosts, get_ports, get_connection
     # flag_findings lives in FinalApp to keep it alongside its constants
@@ -331,6 +332,12 @@ def generate_report(session_id: str, target: str,
                 if flag["port"] is not None:
                     target_str = f"{flag['host']}:{flag['port']}"
                 lines.append(f"    - {target_str:<24}  {flag['reason']}")
+                # Inline search terms so a reviewer reading the plain-text
+                # report has somewhere to look up each finding.
+                terms = flag.get("search_terms") or []
+                if terms:
+                    terms_str = " | ".join(terms)
+                    lines.append(f"      search: {terms_str}")
             lines.append("")
     else:
         lines.append("  No concerns flagged for this scan.\n")
