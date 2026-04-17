@@ -115,7 +115,9 @@ DATASET_C_CRITICAL = [
 
 # ── Dataset D: Clean network — nothing concerning ─────────────────────────────
 # HTTPS only, modern SSH on a non-standard port (not in flag list),
-# and a DNS server. Should produce zero flags.
+# and a DNS server. Should produce zero alarm-level flags.
+# Note: Sprint 2 introduced info-tier flags for positive findings like HTTPS
+# and modern SSH — so this dataset now produces info flags, but no alarms.
 DATASET_D_CLEAN = [
     {
         "host":            "192.168.50.1",
@@ -335,13 +337,16 @@ class TestDatasetD:
 
     def test_clean_network_produces_no_flags(self):
         """
-        A properly configured network should return zero flags.
-        If this test fails, flag_findings() is producing false positives.
+        A properly configured network should not raise any alarm-level flags
+        (critical/high/medium). Info flags are expected in Sprint 2 for positive
+        findings like HTTPS and modern SSH on non-standard ports.
+        If this test fails, flag_findings() is producing alarm-level false positives.
         """
         result = flag_findings(DATASET_D_CLEAN)
-        assert result == [], (
-            f"Expected no flags on a clean network, got {len(result)} flag(s):\n"
-            + "\n".join(f"  - {f}" for f in result)
+        alarms = [f for f in result if f["severity"] != "info"]
+        assert alarms == [], (
+            f"Expected no alarm-level flags on a clean network, got {len(alarms)} flag(s):\n"
+            + "\n".join(f"  - {f}" for f in alarms)
         )
 
     def test_modern_openssh_not_flagged(self):
@@ -411,7 +416,8 @@ class TestEdgeCases:
     def test_mixed_dataset_clean_hosts_stay_clean(self):
         """
         Running all four datasets together should not cause the clean hosts
-        from Dataset D to pick up any flags.
+        from Dataset D to pick up any alarm-level flags (critical/high/medium).
+        Info flags for positive findings are allowed.
         """
         all_findings = (
             DATASET_A_CONCERNING
@@ -420,8 +426,11 @@ class TestEdgeCases:
             + DATASET_D_CLEAN
         )
         result = flag_findings(all_findings)
-        clean_flags = [f for f in result if f["host"].startswith("192.168.50")]
-        assert clean_flags == [], (
-            f"Clean hosts should produce no flags in a mixed dataset, "
-            f"got: {clean_flags}"
+        clean_alarms = [
+            f for f in result
+            if f["host"].startswith("192.168.50") and f["severity"] != "info"
+        ]
+        assert clean_alarms == [], (
+            f"Clean hosts should produce no alarm-level flags in a mixed dataset, "
+            f"got: {clean_alarms}"
         )
