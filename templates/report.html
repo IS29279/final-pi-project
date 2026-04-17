@@ -101,7 +101,7 @@
     main {
       position: relative;
       z-index: 1;
-      max-width: 1100px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 2rem 1.5rem 4rem;
     }
@@ -174,28 +174,44 @@
     .badge-running::before   { background: var(--blue); animation: pulse 1.5s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
-    /* ── Cards ── */
+    /* ═══════════════════════════════════════════════════════════════════ */
+    /* ── Three-column top section ── */
+    /* ═══════════════════════════════════════════════════════════════════ */
+    .three-column {
+      display: grid;
+      grid-template-columns: 280px 1fr 1fr;
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+
+    /* Stack to one column on narrow screens */
+    @media (max-width: 1100px) {
+      .three-column { grid-template-columns: 1fr; }
+    }
+
+    /* ── Card base ── */
     .card {
       background: rgba(22,27,34,0.55);
       backdrop-filter: blur(10px);
       border: 1px solid var(--border);
       border-radius: 8px;
-      padding: 1.5rem;
+      padding: 1.25rem;
       margin-bottom: 1.5rem;
     }
+    .three-column .card { margin-bottom: 0; }  /* gap handles spacing in the grid */
 
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.25rem;
-      padding-bottom: 0.75rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.6rem;
       border-bottom: 1px solid var(--border-dim);
     }
 
     .card-title {
       font-family: var(--font-display);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
       font-weight: 700;
       color: var(--text-primary);
       letter-spacing: 0.1em;
@@ -204,22 +220,19 @@
 
     .card-count {
       font-family: var(--font-display);
-      font-size: 0.82rem;
+      font-size: 0.78rem;
       color: var(--text-muted);
       letter-spacing: 0.08em;
     }
 
-    /* ── Severity legend (from categorization doc section 2) ── */
-    .legend {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-      gap: 0.8rem;
+    /* ── Column 1: vertical legend ── */
+    .legend-vertical {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
     }
     .legend-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.75rem;
-      padding: 0.75rem 0.85rem;
+      padding: 0.7rem 0.85rem;
       background: rgba(22,27,34,0.5);
       border: 1px solid var(--border-dim);
       border-left-width: 3px;
@@ -229,45 +242,87 @@
     .legend-item.sev-row-high     { border-left-color: var(--orange); }
     .legend-item.sev-row-medium   { border-left-color: var(--yellow); }
     .legend-item.sev-row-info     { border-left-color: var(--blue); }
-    .legend-text {
-      font-size: 0.78rem;
+    .legend-item .sev-badge {
+      display: inline-block;
+      margin-bottom: 0.4rem;
+    }
+    .legend-item .legend-text {
+      font-size: 0.76rem;
       color: var(--text-secondary);
-      line-height: 1.35;
+      line-height: 1.4;
       font-style: italic;
     }
 
-    /* ── Flag severity badges ── */
-    .sev-badge {
-      display: inline-block;
+    /* ── Column 2: narrative summary ── */
+    .summary-card {
+      display: flex;
+      flex-direction: column;
+    }
+    .summary-headline {
       font-family: var(--font-display);
-      font-size: 0.68rem;
+      font-size: 1.1rem;
       font-weight: 700;
-      letter-spacing: 0.1em;
+      color: var(--text-primary);
+      letter-spacing: 0.02em;
+      line-height: 1.3;
+      margin-bottom: 0.9rem;
+    }
+    .summary-counts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 0.9rem;
+    }
+    .count-pill {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.4rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: 4px;
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
-      padding: 0.2rem 0.6rem;
-      border-radius: 3px;
-      min-width: 68px;
-      text-align: center;
     }
-    .sev-critical { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.4); }
-    .sev-high     { background: rgba(240,136,62,0.15);  color: var(--orange); border: 1px solid rgba(240,136,62,0.4); }
-    .sev-medium   { background: rgba(227,179,65,0.15);  color: var(--yellow); border: 1px solid rgba(227,179,65,0.4); }
-    .sev-info     { background: rgba(88,166,255,0.12);  color: var(--blue);   border: 1px solid rgba(88,166,255,0.35); }
+    .count-pill .num {
+      font-size: 1rem;
+      font-weight: 700;
+    }
+    .count-pill.sev-critical { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.4); }
+    .count-pill.sev-high     { background: rgba(240,136,62,0.15);  color: var(--orange); border: 1px solid rgba(240,136,62,0.4); }
+    .count-pill.sev-medium   { background: rgba(227,179,65,0.15);  color: var(--yellow); border: 1px solid rgba(227,179,65,0.4); }
+    .count-pill.sev-info     { background: rgba(88,166,255,0.12);  color: var(--blue);   border: 1px solid rgba(88,166,255,0.35); }
 
-    /* ── Flag group ── */
-    .flag-group {
-      margin-bottom: 1.25rem;
+    .summary-paragraph {
+      font-size: 0.86rem;
+      line-height: 1.6;
+      color: var(--text-secondary);
     }
-    .flag-group:last-child { margin-bottom: 0; }
+
+    /* ── Column 3: flagged concerns (condensed for sidebar) ── */
+    .flags-column {
+      max-height: 560px;
+      overflow-y: auto;
+      padding-right: 0.25rem;
+    }
+    .flags-column::-webkit-scrollbar { width: 6px; }
+    .flags-column::-webkit-scrollbar-track { background: transparent; }
+    .flags-column::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .flag-group-compact {
+      margin-bottom: 0.9rem;
+    }
+    .flag-group-compact:last-child { margin-bottom: 0; }
 
     .flag-group-header {
       font-family: var(--font-display);
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--text-muted);
-      margin-bottom: 0.6rem;
+      margin-bottom: 0.45rem;
       display: flex;
       align-items: center;
       gap: 0.5rem;
@@ -279,51 +334,72 @@
       background: linear-gradient(90deg, var(--border-dim), transparent);
     }
 
-    .flag-row {
+    .flag-row-compact {
       display: grid;
-      grid-template-columns: 85px 170px 1fr auto;
-      gap: 1rem;
-      padding: 0.65rem 0.85rem;
+      grid-template-columns: 1fr auto;
+      gap: 0.6rem;
+      padding: 0.55rem 0.75rem;
       border-left: 3px solid transparent;
       border-radius: 3px;
       margin-bottom: 0.3rem;
-      align-items: center;
-      background: rgba(22,27,34,0.35);
+      background: rgba(22,27,34,0.4);
     }
-    .flag-row.sev-row-critical { border-left-color: var(--red); }
-    .flag-row.sev-row-high     { border-left-color: var(--orange); }
-    .flag-row.sev-row-medium   { border-left-color: var(--yellow); }
-    .flag-row.sev-row-info     { border-left-color: var(--blue); }
+    .flag-row-compact.sev-row-critical { border-left-color: var(--red); }
+    .flag-row-compact.sev-row-high     { border-left-color: var(--orange); }
+    .flag-row-compact.sev-row-medium   { border-left-color: var(--yellow); }
+    .flag-row-compact.sev-row-info     { border-left-color: var(--blue); }
 
-    .flag-target {
-      font-size: 0.82rem;
-      color: var(--text-primary);
-    }
-    .flag-target .port {
-      color: var(--text-muted);
+    .flag-row-compact .flag-target {
       font-size: 0.78rem;
+      color: var(--text-primary);
+      font-weight: 500;
+      margin-bottom: 0.1rem;
     }
-    .flag-reason {
-      font-size: 0.82rem;
+    .flag-row-compact .flag-target .port {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: normal;
+    }
+    .flag-row-compact .flag-reason {
+      font-size: 0.76rem;
       color: var(--text-secondary);
       line-height: 1.4;
     }
 
-    /* ── Search term hover-reveal ── */
+    /* ── Severity badges ── */
+    .sev-badge {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.18rem 0.55rem;
+      border-radius: 3px;
+      min-width: 64px;
+      text-align: center;
+    }
+    .sev-critical { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.4); }
+    .sev-high     { background: rgba(240,136,62,0.15);  color: var(--orange); border: 1px solid rgba(240,136,62,0.4); }
+    .sev-medium   { background: rgba(227,179,65,0.15);  color: var(--yellow); border: 1px solid rgba(227,179,65,0.4); }
+    .sev-info     { background: rgba(88,166,255,0.12);  color: var(--blue);   border: 1px solid rgba(88,166,255,0.35); }
+
+    /* ── Search term hover-reveal (condensed for sidebar) ── */
     .search-affordance {
       position: relative;
       font-family: var(--font-display);
-      font-size: 0.66rem;
+      font-size: 0.62rem;
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
       color: var(--text-dim);
       cursor: help;
-      padding: 0.2rem 0.55rem;
+      padding: 0.15rem 0.5rem;
       border: 1px dashed var(--border-dim);
       border-radius: 3px;
       transition: color 0.2s, border-color 0.2s;
       white-space: nowrap;
+      align-self: center;
     }
     .search-affordance:hover,
     .search-affordance:focus {
@@ -334,7 +410,7 @@
     }
     .search-affordance::before {
       content: '\01F50D';
-      margin-right: 0.3rem;
+      margin-right: 0.2rem;
       font-size: 0.8em;
       filter: grayscale(1) brightness(1.5);
     }
@@ -347,7 +423,7 @@
       border-left: 3px solid var(--blue);
       border-radius: 4px;
       padding: 0.65rem 0.8rem;
-      width: 260px;
+      width: 240px;
       opacity: 0;
       visibility: hidden;
       transform: translateY(4px);
@@ -367,7 +443,7 @@
     .search-tooltip-title {
       display: block;
       font-family: var(--font-display);
-      font-size: 0.62rem;
+      font-size: 0.6rem;
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -377,12 +453,12 @@
     .search-term-pill {
       display: inline-block;
       font-family: var(--font-mono);
-      font-size: 0.72rem;
+      font-size: 0.7rem;
       color: var(--text-secondary);
       background: rgba(88,166,255,0.06);
       border: 1px solid rgba(88,166,255,0.2);
       border-radius: 3px;
-      padding: 0.15rem 0.45rem;
+      padding: 0.15rem 0.4rem;
       margin: 0.15rem 0.2rem 0.15rem 0;
       letter-spacing: 0;
       text-transform: none;
@@ -392,7 +468,7 @@
       text-align: center;
       padding: 1.5rem 0.75rem;
       color: var(--text-dim);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
     }
     .empty-flags .icon {
       font-size: 1.8rem;
@@ -400,7 +476,7 @@
       margin-bottom: 0.5rem;
     }
 
-    /* ── Hosts ── */
+    /* ── Hosts & tables ── */
     .host-block {
       border: 1px solid var(--border-dim);
       border-radius: 4px;
@@ -516,83 +592,109 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- ── Severity legend (pulled from categorization doc section 2) ── -->
+    <!-- ── Three-column top section ── -->
     <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Severity Legend</span>
-        <span class="card-count">How to read these findings</span>
-      </div>
-      <div class="legend">
-        <div class="legend-item sev-row-critical">
-          <span class="sev-badge sev-critical">Critical</span>
-          <span class="legend-text">Do I need to act on this today?</span>
-        </div>
-        <div class="legend-item sev-row-high">
-          <span class="sev-badge sev-high">High</span>
-          <span class="legend-text">Is this a real risk I need to plan for?</span>
-        </div>
-        <div class="legend-item sev-row-medium">
-          <span class="sev-badge sev-medium">Medium</span>
-          <span class="legend-text">Is this worth reviewing but not urgent?</span>
-        </div>
-        <div class="legend-item sev-row-info">
-          <span class="sev-badge sev-info">Info</span>
-          <span class="legend-text">Is this worth noting in the report for completeness?</span>
-        </div>
-      </div>
-    </div>
+    <div class="three-column">
 
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <!-- ── Flagged Concerns ── -->
-    <!-- ═══════════════════════════════════════════════════════════════════ -->
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Flagged Concerns</span>
-        <span class="card-count">{{ flags | length }} finding{{ 's' if flags | length != 1 else '' }}</span>
+      <!-- ── Column 1: Severity Legend ── -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Severity Legend</span>
+        </div>
+        <div class="legend-vertical">
+          <div class="legend-item sev-row-critical">
+            <span class="sev-badge sev-critical">Critical</span>
+            <div class="legend-text">Do I need to act on this today?</div>
+          </div>
+          <div class="legend-item sev-row-high">
+            <span class="sev-badge sev-high">High</span>
+            <div class="legend-text">Is this a real risk I need to plan for?</div>
+          </div>
+          <div class="legend-item sev-row-medium">
+            <span class="sev-badge sev-medium">Medium</span>
+            <div class="legend-text">Is this worth reviewing but not urgent?</div>
+          </div>
+          <div class="legend-item sev-row-info">
+            <span class="sev-badge sev-info">Info</span>
+            <div class="legend-text">Is this worth noting in the report for completeness?</div>
+          </div>
+        </div>
       </div>
 
-      {% if flags %}
-        {% set sev_order = ['critical', 'high', 'medium', 'info'] %}
-        {% for sev in sev_order %}
-          {% set group = flags | selectattr('severity', 'equalto', sev) | list %}
-          {% if group %}
-            <div class="flag-group">
-              <div class="flag-group-header">
-                <span class="sev-badge sev-{{ sev }}">{{ sev }}</span>
-                <span>{{ group | length }} finding{{ 's' if group | length != 1 else '' }}</span>
-              </div>
-              {% for flag in group %}
-              <div class="flag-row sev-row-{{ sev }}">
-                <div><span class="sev-badge sev-{{ sev }}">{{ sev }}</span></div>
-                <div class="flag-target">
-                  {{ flag['host'] }}{% if flag['port'] %}<span class="port"> :{{ flag['port'] }}</span>{% endif %}
-                </div>
-                <div class="flag-reason">{{ flag['reason'] }}</div>
-                <div>
-                  {% if flag.get('search_terms') %}
-                  <span class="search-affordance" tabindex="0">
-                    Search
-                    <span class="search-tooltip">
-                      <span class="search-tooltip-title">Search terms</span>
-                      {% for term in flag['search_terms'] %}
-                        <span class="search-term-pill">{{ term }}</span>
-                      {% endfor %}
+      <!-- ── Column 2: Summary of Findings ── -->
+      <div class="card summary-card">
+        <div class="card-header">
+          <span class="card-title">Summary of Findings</span>
+        </div>
+        <div class="summary-headline">{{ summary['headline'] }}</div>
+
+        {% if summary['counts'] %}
+        <div class="summary-counts">
+          {% for sev in ['critical', 'high', 'medium', 'info'] %}
+            {% if summary['counts'].get(sev) %}
+              <span class="count-pill sev-{{ sev }}">
+                <span class="num">{{ summary['counts'][sev] }}</span>
+                <span>{{ sev }}</span>
+              </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <p class="summary-paragraph">{{ summary['paragraph'] }}</p>
+      </div>
+
+      <!-- ── Column 3: Flagged Concerns (condensed) ── -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Flagged Concerns</span>
+          <span class="card-count">{{ flags | length }} finding{{ 's' if flags | length != 1 else '' }}</span>
+        </div>
+
+        <div class="flags-column">
+          {% if flags %}
+            {% set sev_order = ['critical', 'high', 'medium', 'info'] %}
+            {% for sev in sev_order %}
+              {% set group = flags | selectattr('severity', 'equalto', sev) | list %}
+              {% if group %}
+                <div class="flag-group-compact">
+                  <div class="flag-group-header">
+                    <span class="sev-badge sev-{{ sev }}">{{ sev }}</span>
+                    <span>{{ group | length }}</span>
+                  </div>
+                  {% for flag in group %}
+                  <div class="flag-row-compact sev-row-{{ sev }}">
+                    <div>
+                      <div class="flag-target">
+                        {{ flag['host'] }}{% if flag['port'] %}<span class="port"> :{{ flag['port'] }}</span>{% endif %}
+                      </div>
+                      <div class="flag-reason">{{ flag['reason'] }}</div>
+                    </div>
+                    {% if flag.get('search_terms') %}
+                    <span class="search-affordance" tabindex="0">
+                      Search
+                      <span class="search-tooltip">
+                        <span class="search-tooltip-title">Search terms</span>
+                        {% for term in flag['search_terms'] %}
+                          <span class="search-term-pill">{{ term }}</span>
+                        {% endfor %}
+                      </span>
                     </span>
-                  </span>
-                  {% endif %}
+                    {% endif %}
+                  </div>
+                  {% endfor %}
                 </div>
-              </div>
-              {% endfor %}
+              {% endif %}
+            {% endfor %}
+          {% else %}
+            <div class="empty-flags">
+              <div class="icon">&#10003;</div>
+              <p>No concerns flagged.</p>
             </div>
           {% endif %}
-        {% endfor %}
-      {% else %}
-        <div class="empty-flags">
-          <div class="icon">&#10003;</div>
-          <p>No concerns flagged for this scan.</p>
         </div>
-      {% endif %}
+      </div>
+
     </div>
 
     <!-- ── Discovered hosts ── -->
