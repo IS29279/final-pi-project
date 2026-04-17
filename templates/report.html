@@ -537,7 +537,90 @@
       border-color: var(--blue);
     }
 
-    .actions { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .actions { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; align-items: center; }
+
+    /* ── Export button groups ── */
+    .export-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.25rem 0.6rem 0.25rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: rgba(22,27,34,0.4);
+    }
+    .export-label {
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-right: 0.2rem;
+    }
+    .btn-export {
+      padding: 0.35rem 0.75rem;
+      font-size: 0.75rem;
+    }
+
+    /* ── Plain-English guidance section ── */
+    .guidance-block {
+      margin-bottom: 1.25rem;
+    }
+    .guidance-block:last-child { margin-bottom: 0; }
+
+    .guidance-heading {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.6rem;
+    }
+    .guidance-actions      .guidance-heading { color: var(--red); }
+    .guidance-reassurances .guidance-heading { color: var(--blue); }
+
+    .guidance-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .guidance-dot-action { background: var(--red); }
+    .guidance-dot-good   { background: var(--blue); }
+
+    .guidance-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .guidance-list li {
+      padding: 0.55rem 0.85rem 0.55rem 1.6rem;
+      position: relative;
+      font-size: 0.86rem;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      margin-bottom: 0.35rem;
+      background: rgba(22,27,34,0.35);
+      border-left: 3px solid transparent;
+      border-radius: 3px;
+    }
+    .guidance-list li::before {
+      content: "";
+      position: absolute;
+      left: 0.6rem;
+      top: 0.9rem;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-dim);
+    }
+    .guidance-actions      .guidance-list li { border-left-color: var(--red); }
+    .guidance-actions      .guidance-list li::before { background: var(--red); }
+    .guidance-reassurances .guidance-list li { border-left-color: var(--blue); }
+    .guidance-reassurances .guidance-list li::before { background: var(--blue); }
 
     .report-footer {
       text-align: center;
@@ -588,6 +671,20 @@
 
     <div class="actions">
       <a class="btn" href="/scan/{{ report['session_id'] }}">View Scan Detail</a>
+
+      <!-- Export buttons — grouped by content (Full vs Summary), format picker on each -->
+      <div class="export-group">
+        <span class="export-label">Export Full</span>
+        <a class="btn btn-export" href="/scan/{{ report['session_id'] }}/export/full.pdf">PDF</a>
+        <a class="btn btn-export" href="/scan/{{ report['session_id'] }}/export/full.docx">Word</a>
+      </div>
+
+      <div class="export-group">
+        <span class="export-label">Export Summary</span>
+        <a class="btn btn-export" href="/scan/{{ report['session_id'] }}/export/summary.pdf">PDF</a>
+        <a class="btn btn-export" href="/scan/{{ report['session_id'] }}/export/summary.docx">Word</a>
+      </div>
+
       <a class="btn" href="/reports">&larr; All Reports</a>
     </div>
 
@@ -696,6 +793,50 @@
       </div>
 
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ── Plain-English guidance ── -->
+    <!-- Explains the technical findings in terms a non-technical reader can -->
+    <!-- act on. "Take this to your IT person" style. -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    {% if guidance %}
+    {% set actions      = guidance | selectattr('kind', 'equalto', 'action')      | list %}
+    {% set reassurances = guidance | selectattr('kind', 'equalto', 'reassurance') | list %}
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Here's What You Should Know</span>
+        <span class="card-count">Plain-English guidance</span>
+      </div>
+
+      {% if actions %}
+      <div class="guidance-block guidance-actions">
+        <div class="guidance-heading">
+          <span class="guidance-dot guidance-dot-action"></span>
+          What to do next
+        </div>
+        <ul class="guidance-list">
+          {% for item in actions %}
+          <li>{{ item['text'] }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      {% if reassurances %}
+      <div class="guidance-block guidance-reassurances">
+        <div class="guidance-heading">
+          <span class="guidance-dot guidance-dot-good"></span>
+          What's working well
+        </div>
+        <ul class="guidance-list">
+          {% for item in reassurances %}
+          <li>{{ item['text'] }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
 
     <!-- ── Discovered hosts ── -->
     <div class="card">
