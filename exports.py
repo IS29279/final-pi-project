@@ -32,6 +32,26 @@ from collections import Counter
 
 
 # ---------------------------------------------------------------------------
+# Row-safe accessor
+# ---------------------------------------------------------------------------
+# Hosts, ports, and traffic records come through as sqlite3.Row objects when
+# called from the live Flask route, but as plain dicts when called from tests.
+# Row objects support row["key"] but NOT row.get("key"), so this helper
+# bridges the two without needing to convert every row up front.
+
+def _rget(row, key, default=None):
+    """Safely read a field from either a sqlite3.Row or a dict."""
+    if row is None:
+        return default
+    if hasattr(row, "get"):
+        return row.get(key, default)
+    try:
+        return row[key]
+    except (KeyError, IndexError):
+        return default
+
+
+# ---------------------------------------------------------------------------
 # Plain-English guidance builder
 # ---------------------------------------------------------------------------
 #
@@ -337,17 +357,19 @@ def build_full_pdf(ctx) -> bytes:
         for item in hosts:
             h = item["host"]
             pdf.set_font("Helvetica", "B", 10)
-            line = h["ip_address"]
-            if h.get("hostname"):
-                line += f"   ({h['hostname']})"
+            line = _rget(h, "ip_address", "")
+            if _rget(h, "hostname"):
+                line += f"   ({_rget(h, 'hostname')})"
             pdf.cell(0, 5, _sanitize(line), ln=True)
             pdf.set_font("Helvetica", "", 8)
             if item["ports"]:
                 for port in item["ports"]:
-                    svc = port.get("service_name") or "-"
-                    ver = port.get("service_version") or ""
+                    svc = _rget(port, "service_name") or "-"
+                    ver = _rget(port, "service_version") or ""
+                    port_num   = _rget(port, "port_number", "")
+                    protocol   = _rget(port, "protocol", "")
                     pdf.set_x(14)
-                    pdf.cell(0, 4, _sanitize(f"{port['port_number']}/{port['protocol']}  {svc}  {ver}"), ln=True)
+                    pdf.cell(0, 4, _sanitize(f"{port_num}/{protocol}  {svc}  {ver}"), ln=True)
             else:
                 pdf.set_x(14)
                 pdf.set_font("Helvetica", "I", 8)
@@ -362,9 +384,9 @@ def build_full_pdf(ctx) -> bytes:
     if traffic:
         pdf.set_font("Helvetica", "", 9)
         for t in traffic:
-            creds = "YES -- review immediately" if t.get("cleartext_creds_found") else "None detected"
-            pdf.cell(0, 4, _sanitize(f"PCAP: {t.get('pcap_path', '-')}"), ln=True)
-            pdf.cell(0, 4, _sanitize(f"Protocols: {t.get('protocol_summary') or '-'}"), ln=True)
+            creds = "YES -- review immediately" if _rget(t, "cleartext_creds_found") else "None detected"
+            pdf.cell(0, 4, _sanitize(f"PCAP: {_rget(t, 'pcap_path', '-')}"), ln=True)
+            pdf.cell(0, 4, _sanitize(f"Protocols: {_rget(t, 'protocol_summary') or '-'}"), ln=True)
             pdf.cell(0, 4, _sanitize(f"Cleartext credentials: {creds}"), ln=True)
             pdf.ln(1)
     else:
@@ -585,17 +607,19 @@ def build_full_docx(ctx) -> bytes:
     if hosts:
         for item in hosts:
             h = item["host"]
-            line = h["ip_address"]
-            if h.get("hostname"):
-                line += f"   ({h['hostname']})"
+            line = _rget(h, "ip_address", "")
+            if _rget(h, "hostname"):
+                line += f"   ({_rget(h, 'hostname')})"
             p = doc.add_paragraph()
             p.add_run(line).bold = True
             if item["ports"]:
                 for port in item["ports"]:
-                    svc = port.get("service_name") or "-"
-                    ver = port.get("service_version") or ""
+                    svc = _rget(port, "service_name") or "-"
+                    ver = _rget(port, "service_version") or ""
+                    port_num = _rget(port, "port_number", "")
+                    protocol = _rget(port, "protocol", "")
                     doc.add_paragraph(
-                        f"{port['port_number']}/{port['protocol']}  {svc}  {ver}",
+                        f"{port_num}/{protocol}  {svc}  {ver}",
                         style="List Bullet"
                     )
             else:
@@ -607,9 +631,9 @@ def build_full_docx(ctx) -> bytes:
     _docx_section(doc, "Traffic Analysis")
     if traffic:
         for t in traffic:
-            creds = "YES — review immediately" if t.get("cleartext_creds_found") else "None detected"
-            doc.add_paragraph(f"PCAP: {t.get('pcap_path', '-')}", style="List Bullet")
-            doc.add_paragraph(f"Protocols: {t.get('protocol_summary') or '-'}", style="List Bullet")
+            creds = "YES — review immediately" if _rget(t, "cleartext_creds_found") else "None detected"
+            doc.add_paragraph(f"PCAP: {_rget(t, 'pcap_path', '-')}", style="List Bullet")
+            doc.add_paragraph(f"Protocols: {_rget(t, 'protocol_summary') or '-'}", style="List Bullet")
             doc.add_paragraph(f"Cleartext credentials: {creds}", style="List Bullet")
     else:
         doc.add_paragraph("No traffic findings recorded.")
