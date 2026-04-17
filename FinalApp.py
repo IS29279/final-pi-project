@@ -419,6 +419,94 @@ def register_routes(app):
         return jsonify({"status": "ok", "scans_total": total,
                         "scans_running": running, "scans_complete": complete})
 
+# ---------------------------------------------------------------------------
+# Added by Channing - Beginning of section added for testing.
+# ---------------------------------------------------------------------------
+
+# ── Findings Flagging ────────────────────────────────────────────────────
+# Each finding dict passed in matches the shape returned by get_ports()
+# in utils/db.py (sqlite3.Row keys):
+#
+#   {
+#       "host":            "192.168.1.10",   ← added by caller from hosts table
+#       "port_number":     22,
+#       "protocol":        "tcp",
+#       "state":           "open",
+#       "service_name":    "ssh",
+#       "service_version": "OpenSSH 5.3",
+#   }
+#
+# Returns a list of flag dicts:
+#   {
+#       "host":     "192.168.1.10",
+#       "port":     22,
+#       "severity": "high",
+#       "reason":   "SSH exposed on default port 22",
+#   }
+
+FLAGGED_PORTS = {
+    21:   ("high",     "FTP is unencrypted and should not be exposed"),
+    23:   ("critical", "Telnet is plaintext — credentials sent in the clear"),
+    445:  ("critical", "SMB exposed — high-value target for ransomware and lateral movement"),
+    3389: ("critical", "RDP exposed — common brute-force and ransomware entry point"),
+    22:   ("high",     "SSH exposed on default port 22"),
+    80:   ("medium",   "HTTP (unencrypted web) is exposed"),
+    8080: ("medium",   "HTTP alternate port exposed — often a misconfigured dev server"),
+    2049: ("high",     "NFS exposed — can allow unauthenticated file system access"),
+    5900: ("high",     "VNC exposed — remote desktop with historically weak auth"),
+    1433: ("high",     "MSSQL database port exposed externally"),
+    3306: ("high",     "MySQL database port exposed externally"),
+    5432: ("high",     "PostgreSQL database port exposed externally"),
+}
+
+FLAGGED_VERSION_SUBSTRINGS = [
+    ("OpenSSH 5.", "critical", "Outdated OpenSSH version with known critical vulnerabilities"),
+    ("OpenSSH 6.", "high",     "Outdated OpenSSH version — upgrade to 8.x or later"),
+    ("Apache/2.2", "high",     "End-of-life Apache 2.2 — no longer receives security patches"),
+    ("IIS/6.0",    "critical", "IIS 6.0 is end-of-life and has known remote code execution CVEs"),
+    ("vsftpd 2.3.4", "critical", "vsftpd 2.3.4 contains a backdoor (CVE-2011-2523)"),
+    ("OpenSSL/1.0", "high",    "Outdated OpenSSL 1.0.x — vulnerable to multiple CVEs"),
+]
+
+def flag_findings(findings: list) -> list:
+    """
+    Analyse a list of port/service finding dicts and return flagged concerns.
+    Keys must match the utils/db.py schema: port_number, service_version, etc.
+    The caller is responsible for adding a 'host' key from the hosts table.
+    """
+    flags = []
+
+    for finding in findings:
+        host            = finding.get("host", "unknown")
+        port_number     = finding.get("port_number")
+        service_version = finding.get("service_version", "") or ""
+
+        # Port-based flags
+        if port_number in FLAGGED_PORTS:
+            severity, reason = FLAGGED_PORTS[port_number]
+            flags.append({
+                "host":     host,
+                "port":     port_number,
+                "severity": severity,
+                "reason":   reason,
+            })
+
+        # Version string flags
+        for substring, severity, reason in FLAGGED_VERSION_SUBSTRINGS:
+            if substring.lower() in service_version.lower():
+                flags.append({
+                    "host":     host,
+                    "port":     port_number,
+                    "severity": severity,
+                    "reason":   reason,
+                })
+                break  # one version flag per finding
+
+    return flags
+
+# --------------------------------------------------------------------------- 
+# End of section added for testing.
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Entry point
