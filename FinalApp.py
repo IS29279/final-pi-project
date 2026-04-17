@@ -4,11 +4,12 @@ Pi Intrusion Testing Appliance - Flask Web Application
 Team 3 / ITP 258 Sprint 2
 
 Routes:
-  GET  /                  - dashboard: list all scans
-  GET  /scan/<id>         - scan detail: hosts, ports, traffic events, flagged concerns
-  GET  /scan/<id>/report  - view the generated text report for a scan
-  POST /scan/start        - kick off a new scan (accepts target and duration)
-  GET  /status            - JSON health check endpoint
+  GET  /                         - dashboard: list all scans
+  GET  /scan/<id>                - scan detail: hosts, ports, traffic events, flagged concerns
+  GET  /scan/<id>/report         - view the generated report for a scan (rich HTML)
+  POST /scan/start               - kick off a new scan (accepts target and duration)
+  POST /admin/regenerate-reports - one-time: rebuild text reports for every scan in the DB
+  GET  /status                   - JSON health check endpoint
 """
 
 import threading
@@ -191,8 +192,6 @@ def register_routes(app):
         traffic = get_traffic_findings(scan_id)
 
         # ── Sprint 2: compute flagged concerns for the template ──────────
-        # Flatten hosts+ports into the shape flag_findings() expects, then
-        # pass the traffic rows through so traffic-based flags also appear.
         port_findings = _build_port_findings_for_flags(hosts_with_ports)
         flags = flag_findings(port_findings, list(traffic))
 
@@ -205,16 +204,37 @@ def register_routes(app):
 
     @app.route("/scan/<scan_id>/report")
     def scan_report(scan_id):
+        """
+        Render a rich, styled report page. Pulls the same structured data
+        used by the scan detail page and passes it through the report.html
+        template so the Reports tab → View Report looks consistent with the
+        rest of the app. The on-disk text report is still the canonical
+        record for download or archival; this route is the UI view of it.
+        """
         report = get_report(scan_id)
         if not report:
             abort(404)
-        content = ""
-        try:
-            with open(report["file_path"], "r") as f:
-                content = f.read()
-        except Exception:
-            content = "Report file could not be loaded."
-        return render_template("report.html", report=report, content=content)
+
+        scan = get_session(scan_id)
+        if not scan:
+            abort(404)
+
+        hosts = get_hosts(scan_id)
+        hosts_with_ports = []
+        for host in hosts:
+            ports = get_ports(host["id"])
+            hosts_with_ports.append({"host": host, "ports": ports})
+        traffic = get_traffic_findings(scan_id)
+
+        port_findings = _build_port_findings_for_flags(hosts_with_ports)
+        flags = flag_findings(port_findings, list(traffic))
+
+        return render_template("report.html",
+                               report=report,
+                               scan=scan,
+                               hosts_with_ports=hosts_with_ports,
+                               traffic=traffic,
+                               flags=flags)
 
 
     @app.route("/scan/start", methods=["POST"])
@@ -253,8 +273,6 @@ def register_routes(app):
         if stop_event:
             stop_event.set()
 
-        # Find the running session, mark completed, and generate a partial report
-        # from whatever data was collected before the stop
         sessions = get_all_sessions()
         stopped_id = None
         for s in sessions:
@@ -264,12 +282,10 @@ def register_routes(app):
                 break
 
         if stopped_id:
-            # Generate a partial report from whatever was collected so far
             try:
                 from orchestrator import generate_report
                 hosts    = get_hosts(stopped_id)
                 host_ids = [h["id"] for h in hosts]
-                # Find any traffic finding for this session
                 findings  = get_traffic_findings(stopped_id)
                 finding_id = findings[0]["id"] if findings else None
                 session    = get_session(stopped_id)
@@ -295,6 +311,42 @@ def register_routes(app):
     def reports_page():
         all_reports = get_all_reports()
         return render_template("reports.html", reports=all_reports)
+
+
+    @app.route("/admin/regenerate-reports", methods=["POST"])
+    def regenerate_reports():
+        """
+        One-time admin action: rebuild the text report for every scan in the
+        database using the current generate_report() implementation. Useful
+        after a change to report formatting (like adding search terms) so
+        old reports get the new layout too. Safe to run multiple times.
+        """
+        from orchestrator import generate_report
+
+        sessions = get_all_sessions()
+        regenerated = 0
+        failed      = 0
+        errors      = []
+
+        for s in sessions:
+            session_id = s["id"]
+            target     = s["target_cidr"]
+            try:
+                hosts    = get_hosts(session_id)
+                host_ids = [h["id"] for h in hosts]
+                tf = get_traffic_findings(session_id)
+                finding_id = tf[0]["id"] if tf else None
+                generate_report(session_id, target, host_ids, finding_id)
+                regenerated += 1
+            except Exception as e:
+                failed += 1
+                errors.append(f"{session_id[:8]}: {e}")
+
+        return jsonify({
+            "regenerated": regenerated,
+            "failed":      failed,
+            "errors":      errors,
+        })
 
 
     @app.route("/api/scans")
@@ -337,7 +389,6 @@ def register_routes(app):
         """
         import subprocess, socket, re, time, os
 
-        # ── CPU usage (via /proc/stat) ────────────────────────────────────
         def cpu_percent():
             try:
                 with open("/proc/stat") as f:
@@ -355,7 +406,6 @@ def register_routes(app):
             except Exception:
                 return None
 
-        # ── Memory usage (via /proc/meminfo) ─────────────────────────────
         def mem_info():
             try:
                 data = {}
@@ -375,7 +425,6 @@ def register_routes(app):
             except Exception:
                 return None
 
-        # ── Disk usage (via df) ───────────────────────────────────────────
         def disk_info():
             try:
                 out = subprocess.check_output(
@@ -389,7 +438,6 @@ def register_routes(app):
             except Exception:
                 return None
 
-        # ── Tool availability ─────────────────────────────────────────────
         def tool_ok(name):
             try:
                 subprocess.check_output(["which", name], stderr=subprocess.DEVNULL)
@@ -397,7 +445,6 @@ def register_routes(app):
             except Exception:
                 return False
 
-        # ── Network interfaces ────────────────────────────────────────────
         def net_info():
             interfaces = []
             try:
@@ -425,10 +472,8 @@ def register_routes(app):
                 pass
             return interfaces
 
-        # ── Hostname ──────────────────────────────────────────────────────
         hostname = socket.gethostname()
 
-        # ── Uptime ────────────────────────────────────────────────────────
         uptime_str = ""
         try:
             with open("/proc/uptime") as f:
@@ -467,46 +512,6 @@ def register_routes(app):
 # Extended in Sprint 2 to cover traffic findings, info-tier flags, and
 # search terms (CVE + attack name + MITRE ATT&CK ID) on every flag.
 # ---------------------------------------------------------------------------
-
-# ── Findings Flagging ────────────────────────────────────────────────────
-# Each port finding dict passed in matches the shape returned by get_ports()
-# in utils/db.py (sqlite3.Row keys):
-#
-#   {
-#       "host":            "192.168.1.10",   ← added by caller from hosts table
-#       "port_number":     22,
-#       "protocol":        "tcp",
-#       "state":           "open",
-#       "service_name":    "ssh",
-#       "service_version": "OpenSSH 5.3",
-#   }
-#
-# Each traffic finding dict passed in matches the shape returned by
-# get_traffic_findings() (sqlite3.Row keys from traffic_findings):
-#
-#   {
-#       "id":                    "uuid",
-#       "session_id":            "uuid",
-#       "pcap_path":             "reports/capture_<id>.pcap",
-#       "protocol_summary":      "tcp:142, http:38, dns:12, telnet:4",
-#       "cleartext_creds_found": 1,         ← SQLite stores bools as 0/1
-#       "capture_start":         1729...,
-#       "capture_end":           1729...,
-#   }
-#
-# Returns a list of flag dicts:
-#   {
-#       "host":         "192.168.1.10" or "network" (for traffic flags),
-#       "port":         22 or None (for traffic flags),
-#       "severity":     "critical" | "high" | "medium" | "info",
-#       "reason":       "SSH exposed on default port 22",
-#       "search_terms": ["SSH brute force", "T1110.001", "T1021.004"],
-#   }
-#
-# Search terms mix three styles where applicable:
-#   - Attack or technique name (readable, good for Googling)
-#   - CVE number (specific vulnerability reference)
-#   - MITRE ATT&CK technique ID (industry-standard mapping)
 
 # Each entry is (severity, reason, search_terms).
 FLAGGED_PORTS = {
@@ -552,8 +557,6 @@ FLAGGED_VERSION_SUBSTRINGS = [
      ["OpenSSL 1.0 Heartbleed", "CVE-2014-0160", "CVE-2016-2107"]),
 ]
 
-# ── Info-tier emitters (Sprint 2) ────────────────────────────────────────
-# Ports that are inherently "good" to see — encrypted/modern.
 # Each entry is (reason, search_terms).
 INFO_PORTS = {
     443: ("HTTPS present — encrypted web traffic",
@@ -564,20 +567,13 @@ INFO_PORTS = {
           ["POP3S best practices", "mail server TLS configuration"]),
 }
 
-# Modern SSH version substrings — if SSH is seen running one of these,
-# emit an info flag (the default-port high-severity flag for port 22 still
-# fires separately — a defensive version doesn't cancel out default-port exposure).
 MODERN_SSH_SUBSTRINGS = ("OpenSSH 8.", "OpenSSH 9.", "OpenSSH 10.")
-
 MODERN_SSH_INFO_TERMS = ["SSH hardening", "SSH non-standard port", "SSH key-only auth"]
 
-# Protocols we consider cleartext for the purposes of traffic flagging.
-# Mirrors the set used by run_tshark_capture() in orchestrator.py.
 CLEARTEXT_PROTOCOLS = {"telnet", "ftp", "http"}
 
 
 def _flag_port_findings(findings: list) -> list:
-    """Port-based and version-based flags, plus info-tier positive findings."""
     flags = []
 
     for finding in findings:
@@ -585,7 +581,6 @@ def _flag_port_findings(findings: list) -> list:
         port_number     = finding.get("port_number")
         service_version = finding.get("service_version", "") or ""
 
-        # ── Port-based (critical/high/medium) ────────────────────────────
         if port_number in FLAGGED_PORTS:
             severity, reason, search_terms = FLAGGED_PORTS[port_number]
             flags.append({
@@ -596,7 +591,6 @@ def _flag_port_findings(findings: list) -> list:
                 "search_terms": list(search_terms),
             })
 
-        # ── Version string (critical/high) ───────────────────────────────
         for substring, severity, reason, search_terms in FLAGGED_VERSION_SUBSTRINGS:
             if substring.lower() in service_version.lower():
                 flags.append({
@@ -606,10 +600,8 @@ def _flag_port_findings(findings: list) -> list:
                     "reason":       reason,
                     "search_terms": list(search_terms),
                 })
-                break  # one version flag per finding
+                break
 
-        # ── Info-tier: encrypted/modern services ─────────────────────────
-        # Port-based info flag (HTTPS, IMAPS, etc.)
         if port_number in INFO_PORTS:
             reason, search_terms = INFO_PORTS[port_number]
             flags.append({
@@ -620,9 +612,6 @@ def _flag_port_findings(findings: list) -> list:
                 "search_terms": list(search_terms),
             })
 
-        # Modern SSH on a NON-standard port is worth noting positively.
-        # If SSH is on port 22 the high-severity flag has already fired;
-        # the info flag would just be noise there.
         if port_number != 22 and any(
             m.lower() in service_version.lower() for m in MODERN_SSH_SUBSTRINGS
         ):
@@ -638,24 +627,9 @@ def _flag_port_findings(findings: list) -> list:
 
 
 def _flag_traffic_findings(traffic: list) -> list:
-    """
-    Traffic-based flags derived from tshark capture rows.
-
-    Rules:
-      - cleartext_creds_found truthy  → critical ("live credentials on the wire")
-      - else, HTTP/FTP/Telnet in summary → medium ("unencrypted traffic observed")
-      - else, non-empty summary       → info    ("only encrypted protocols observed")
-
-    An empty or missing summary means nothing useful was captured — no flag.
-
-    Accepts either plain dicts (from tests) or sqlite3.Row objects (from
-    live callers). Handles both shapes transparently.
-    """
     flags = []
 
     for row in traffic:
-        # dict.get() works everywhere, sqlite3.Row needs bracket access —
-        # try the dict path first and fall back to Row-style indexing.
         if hasattr(row, "get"):
             cleartext = bool(row.get("cleartext_creds_found"))
             summary   = (row.get("protocol_summary") or "").lower()
@@ -671,10 +645,8 @@ def _flag_traffic_findings(traffic: list) -> list:
                 "reason":       "Cleartext credentials observed in capture — live evidence of unencrypted login traffic",
                 "search_terms": ["packet sniffing credentials", "Wireshark credential analysis", "T1040"],
             })
-            continue  # don't also emit a medium when we've already flagged critical
+            continue
 
-        # Look for any cleartext protocol name in the summary string.
-        # Format is "tcp:142, http:38, dns:12" — substring match is sufficient.
         cleartext_in_summary = any(proto in summary for proto in CLEARTEXT_PROTOCOLS)
 
         if cleartext_in_summary:
@@ -693,22 +665,11 @@ def _flag_traffic_findings(traffic: list) -> list:
                 "reason":       "Only encrypted protocols observed during capture — baseline confirmation",
                 "search_terms": ["network encryption baseline", "TLS adoption"],
             })
-        # else: empty summary → nothing captured, no flag
 
     return flags
 
 
 def flag_findings(findings: list, traffic_findings: list = None) -> list:
-    """
-    Analyse scanner output and return a list of flagged concerns.
-
-    Args:
-        findings:         list of port/service dicts (caller adds 'host' from hosts table).
-        traffic_findings: optional list of traffic_findings rows for the same session.
-
-    Returns:
-        list of flag dicts with keys: host, port, severity, reason, search_terms.
-    """
     flags = _flag_port_findings(findings)
 
     if traffic_findings:
