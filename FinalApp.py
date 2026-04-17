@@ -15,7 +15,7 @@ Routes:
 import threading
 import datetime
 from collections import Counter
-from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
+from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, send_file, Response
 
 from utils.db import (
     init_db,
@@ -351,8 +351,11 @@ def register_routes(app):
         """
         Render a rich, styled report page with a three-column top section:
         severity legend on the left, narrative summary in the middle,
-        flagged concerns on the right.
+        flagged concerns on the right. Includes plain-English guidance
+        and export buttons for PDF/Word versions.
         """
+        from exports import build_plain_english_guidance
+
         report = get_report(scan_id)
         if not report:
             abort(404)
@@ -371,7 +374,8 @@ def register_routes(app):
         port_findings = _build_port_findings_for_flags(hosts_with_ports)
         flags = flag_findings(port_findings, list(traffic))
 
-        summary = build_report_summary(scan, hosts_with_ports, flags)
+        summary  = build_report_summary(scan, hosts_with_ports, flags)
+        guidance = build_plain_english_guidance(flags)
 
         return render_template("report.html",
                                report=report,
@@ -379,7 +383,95 @@ def register_routes(app):
                                hosts_with_ports=hosts_with_ports,
                                traffic=traffic,
                                flags=flags,
-                               summary=summary)
+                               summary=summary,
+                               guidance=guidance)
+
+
+    # ── Export routes ────────────────────────────────────────────────────
+    # Four flavors: full/summary × pdf/docx. Each pulls the same structured
+    # data the report page uses, hands it to a builder in exports.py, and
+    # streams the resulting bytes back as an attachment.
+
+    def _build_export_context(scan_id):
+        """Shared data-gathering for all four export routes."""
+        report = get_report(scan_id)
+        scan   = get_session(scan_id)
+        if not report or not scan:
+            return None
+
+        hosts = get_hosts(scan_id)
+        hosts_with_ports = []
+        for host in hosts:
+            ports = get_ports(host["id"])
+            hosts_with_ports.append({"host": host, "ports": ports})
+        traffic = get_traffic_findings(scan_id)
+
+        port_findings = _build_port_findings_for_flags(hosts_with_ports)
+        flags   = flag_findings(port_findings, list(traffic))
+        summary = build_report_summary(scan, hosts_with_ports, flags)
+
+        return {
+            "scan":             scan,
+            "report":           report,
+            "hosts_with_ports": hosts_with_ports,
+            "traffic":          traffic,
+            "flags":            flags,
+            "summary":          summary,
+        }
+
+    def _send_export(data_bytes, filename, mimetype):
+        """Stream an export blob as a download attachment."""
+        import io
+        buf = io.BytesIO(data_bytes)
+        buf.seek(0)
+        return send_file(buf,
+                         mimetype=mimetype,
+                         as_attachment=True,
+                         download_name=filename)
+
+    @app.route("/scan/<scan_id>/export/full.pdf")
+    def export_full_pdf(scan_id):
+        from exports import build_full_pdf
+        ctx = _build_export_context(scan_id)
+        if ctx is None:
+            abort(404)
+        data = build_full_pdf(ctx)
+        return _send_export(data,
+                            f"network-lock-report-{scan_id[:8]}-full.pdf",
+                            "application/pdf")
+
+    @app.route("/scan/<scan_id>/export/full.docx")
+    def export_full_docx(scan_id):
+        from exports import build_full_docx
+        ctx = _build_export_context(scan_id)
+        if ctx is None:
+            abort(404)
+        data = build_full_docx(ctx)
+        return _send_export(data,
+                            f"network-lock-report-{scan_id[:8]}-full.docx",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+    @app.route("/scan/<scan_id>/export/summary.pdf")
+    def export_summary_pdf(scan_id):
+        from exports import build_summary_pdf
+        ctx = _build_export_context(scan_id)
+        if ctx is None:
+            abort(404)
+        data = build_summary_pdf(ctx)
+        return _send_export(data,
+                            f"network-lock-report-{scan_id[:8]}-summary.pdf",
+                            "application/pdf")
+
+    @app.route("/scan/<scan_id>/export/summary.docx")
+    def export_summary_docx(scan_id):
+        from exports import build_summary_docx
+        ctx = _build_export_context(scan_id)
+        if ctx is None:
+            abort(404)
+        data = build_summary_docx(ctx)
+        return _send_export(data,
+                            f"network-lock-report-{scan_id[:8]}-summary.docx",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
 
     @app.route("/scan/start", methods=["POST"])
