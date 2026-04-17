@@ -14,6 +14,7 @@ Routes:
 
 import threading
 import datetime
+from collections import Counter
 from flask import Flask, render_template, request, redirect, url_for, jsonify, abort
 
 from utils.db import (
@@ -139,6 +140,154 @@ def _row_field(row, key):
 
 
 # ---------------------------------------------------------------------------
+# Narrative summary helper (Sprint 2 — used by /scan/<id>/report)
+# ---------------------------------------------------------------------------
+
+# Keyword substring → short label for the summary paragraph.
+# Order matters: more specific patterns must come before less specific ones.
+_SUMMARY_LABELS = [
+    ("vsftpd",             "vsftpd backdoor"),
+    ("outdated openssh",   "outdated SSH"),
+    ("outdated open",      "outdated OpenSSL"),
+    ("end-of-life apache", "end-of-life Apache"),
+    ("end-of-life iis",    "end-of-life IIS"),
+    ("iis 6",              "end-of-life IIS"),
+    ("telnet",             "Telnet"),
+    ("smb",                "SMB"),
+    ("rdp",                "RDP"),
+    ("vnc",                "VNC"),
+    ("nfs",                "NFS"),
+    ("ftp",                "FTP"),
+    ("mssql",              "MSSQL"),
+    ("mysql",              "MySQL"),
+    ("postgres",           "PostgreSQL"),
+    ("default port 22",    "SSH on default port"),
+    ("ssh",                "SSH"),
+    ("http alternate",     "HTTP alt port"),
+    ("http",               "HTTP"),
+]
+
+
+def _label_for_reason(reason: str) -> str:
+    """Turn a flag's reason string into a short noun phrase for the summary."""
+    r = (reason or "").lower()
+    for kw, label in _SUMMARY_LABELS:
+        if kw in r:
+            return label
+    # Fallback: first word before the em-dash
+    first = (reason or "").split("—")[0].strip().rstrip(".").split()
+    return first[0] if first else "(unlabeled)"
+
+
+def build_report_summary(scan, hosts_with_ports, flags):
+    """
+    Produce a human-readable summary of the scan's findings.
+
+    Returns a dict with:
+      - counts:    dict mapping severity → count (e.g. {"critical": 4, "high": 1})
+      - headline:  single-line takeaway (e.g. "4 critical findings require action today")
+      - paragraph: multi-sentence narrative describing what was found
+    """
+    target     = scan["target_cidr"] if scan and "target_cidr" in scan else "the target subnet"
+    host_count = len(hosts_with_ports)
+    counts     = Counter(f["severity"] for f in flags)
+
+    # ── Headline: lead with the worst severity present ──────────────────
+    if counts.get("critical", 0):
+        n = counts["critical"]
+        headline = f"{n} critical finding{'s' if n != 1 else ''} require{'' if n != 1 else 's'} action today"
+    elif counts.get("high", 0):
+        n = counts["high"]
+        headline = f"{n} high-severity finding{'s' if n != 1 else ''} need{'' if n != 1 else 's'} attention"
+    elif counts.get("medium", 0):
+        n = counts["medium"]
+        headline = f"{n} medium-severity finding{'s' if n != 1 else ''} worth reviewing"
+    elif counts.get("info", 0):
+        headline = "No security concerns detected"
+    else:
+        headline = "Scan complete"
+
+    sentences = []
+
+    # Sentence 1: what the scan looked at
+    if host_count == 0:
+        sentences.append(f"This scan of {target} discovered no live hosts.")
+    elif host_count == 1:
+        sentences.append(f"This scan of {target} examined 1 host.")
+    else:
+        sentences.append(f"This scan of {target} examined {host_count} hosts.")
+
+    # Group port-scoped flags by host for the narrative
+    host_to_critical = {}
+    host_to_high     = {}
+    host_to_medium   = {}
+    for flag in flags:
+        if flag["host"] == "network":
+            continue
+        bucket = {"critical": host_to_critical,
+                  "high":     host_to_high,
+                  "medium":   host_to_medium}.get(flag["severity"])
+        if bucket is not None:
+            bucket.setdefault(flag["host"], []).append(flag)
+
+    def _describe(host_map, cap_hosts=2, cap_flags=3):
+        """Turn {host: [flags]} into phrases like 'HOST has X and Y exposed'."""
+        parts = []
+        items = list(host_map.items())
+        for host, host_flags in items[:cap_hosts]:
+            labels = [_label_for_reason(f["reason"]) for f in host_flags[:cap_flags]]
+            # De-dupe while preserving order
+            seen = set()
+            uniq = [x for x in labels if not (x in seen or seen.add(x))]
+            if len(uniq) == 1:
+                parts.append(f"{host} has {uniq[0]} exposed")
+            elif len(uniq) == 2:
+                parts.append(f"{host} has {uniq[0]} and {uniq[1]} exposed")
+            else:
+                parts.append(f"{host} has {', '.join(uniq[:-1])}, and {uniq[-1]} exposed")
+        remaining = len(items) - cap_hosts
+        if remaining > 0:
+            parts.append(f"and {remaining} other host{'s' if remaining != 1 else ''} with similar findings")
+        return parts
+
+    # Sentence 2: headline finding (highest severity present on any host)
+    if host_to_critical:
+        sentences.append(f"Critical: {', '.join(_describe(host_to_critical))}.")
+    elif host_to_high:
+        sentences.append(f"High-severity: {', '.join(_describe(host_to_high))}.")
+    elif host_to_medium:
+        sentences.append(f"Medium-severity: {', '.join(_describe(host_to_medium))}.")
+
+    # Sentence 3: traffic findings are network-wide, handled separately
+    traffic_flags = [f for f in flags if f["host"] == "network"]
+    if any(f["severity"] == "critical" for f in traffic_flags):
+        sentences.append("A packet capture observed cleartext credentials on the wire — live evidence of unencrypted authentication traffic.")
+    elif any(f["severity"] == "medium" for f in traffic_flags):
+        sentences.append("A packet capture observed unencrypted protocols (HTTP/FTP/Telnet) in active use on the network.")
+
+    # Sentence 4: positive findings (info tier, host-scoped only)
+    info_flags = [f for f in flags if f["severity"] == "info" and f["host"] != "network"]
+    if info_flags:
+        info_hosts = len({f["host"] for f in info_flags})
+        if info_hosts == 1:
+            sentences.append("One host showed positive security signals such as HTTPS or modern SSH configuration.")
+        else:
+            sentences.append(f"{info_hosts} hosts showed positive security signals such as HTTPS or modern SSH configuration.")
+
+    # Special cases
+    if host_count == 0:
+        sentences = sentences[:1]  # empty scan — just "discovered no live hosts"
+    elif not flags:
+        sentences.append("No concerns were flagged on any host.")
+
+    return {
+        "counts":    dict(counts),
+        "headline":  headline,
+        "paragraph": " ".join(sentences),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Application factory
 # ---------------------------------------------------------------------------
 
@@ -146,17 +295,14 @@ def create_app():
     app = Flask(__name__)
     app.secret_key = "dev-key-change-before-demo"
 
-    # Initialize Channing's database on startup - safe to call every time
     with app.app_context():
         init_db()
 
-    # Custom Jinja filter: convert Unix timestamp integer to EST string
     @app.template_filter("to_est")
     def to_est(unix_ts):
         if not unix_ts:
             return "—"
         utc = datetime.datetime.utcfromtimestamp(int(unix_ts))
-        # EST = UTC-5 (fixed offset; covers Eastern Standard Time)
         est = utc - datetime.timedelta(hours=5)
         return est.strftime("%-I:%M %p EST %m/%d/%Y")
 
@@ -173,7 +319,6 @@ def register_routes(app):
     @app.route("/")
     def dashboard():
         scans = get_all_sessions()
-        # Check if any scan is still running so the template can auto-refresh
         any_running = any(s["status"] == "running" for s in scans)
         return render_template("main.html", scans=scans, any_running=any_running)
 
@@ -191,7 +336,6 @@ def register_routes(app):
             hosts_with_ports.append({"host": host, "ports": ports})
         traffic = get_traffic_findings(scan_id)
 
-        # ── Sprint 2: compute flagged concerns for the template ──────────
         port_findings = _build_port_findings_for_flags(hosts_with_ports)
         flags = flag_findings(port_findings, list(traffic))
 
@@ -205,11 +349,9 @@ def register_routes(app):
     @app.route("/scan/<scan_id>/report")
     def scan_report(scan_id):
         """
-        Render a rich, styled report page. Pulls the same structured data
-        used by the scan detail page and passes it through the report.html
-        template so the Reports tab → View Report looks consistent with the
-        rest of the app. The on-disk text report is still the canonical
-        record for download or archival; this route is the UI view of it.
+        Render a rich, styled report page with a three-column top section:
+        severity legend on the left, narrative summary in the middle,
+        flagged concerns on the right.
         """
         report = get_report(scan_id)
         if not report:
@@ -229,12 +371,15 @@ def register_routes(app):
         port_findings = _build_port_findings_for_flags(hosts_with_ports)
         flags = flag_findings(port_findings, list(traffic))
 
+        summary = build_report_summary(scan, hosts_with_ports, flags)
+
         return render_template("report.html",
                                report=report,
                                scan=scan,
                                hosts_with_ports=hosts_with_ports,
                                traffic=traffic,
-                               flags=flags)
+                               flags=flags,
+                               summary=summary)
 
 
     @app.route("/scan/start", methods=["POST"])
@@ -268,7 +413,6 @@ def register_routes(app):
 
     @app.route("/scan/stop", methods=["POST"])
     def stop_scan():
-        """Signal the active scan to stop, mark it completed, and generate a partial report."""
         stop_event = _active_scan.get("stop_event")
         if stop_event:
             stop_event.set()
@@ -317,9 +461,7 @@ def register_routes(app):
     def regenerate_reports():
         """
         One-time admin action: rebuild the text report for every scan in the
-        database using the current generate_report() implementation. Useful
-        after a change to report formatting (like adding search terms) so
-        old reports get the new layout too. Safe to run multiple times.
+        database using the current generate_report() implementation.
         """
         from orchestrator import generate_report
 
@@ -351,14 +493,12 @@ def register_routes(app):
 
     @app.route("/api/scans")
     def api_scans():
-        """JSON endpoint for live polling - returns all sessions as dicts."""
         sessions = get_all_sessions()
         return jsonify({"scans": [dict(s) for s in sessions]})
 
 
     @app.route("/api/scan-detail/<scan_id>")
     def api_scan_detail(scan_id):
-        """JSON endpoint returning hosts+ports and traffic findings for a session."""
         hosts = get_hosts(scan_id)
         hosts_out = []
         for host in hosts:
@@ -383,10 +523,6 @@ def register_routes(app):
 
     @app.route("/api/system")
     def api_system():
-        """
-        Returns live system health and network info from the Pi.
-        Uses only stdlib — no psutil required.
-        """
         import subprocess, socket, re, time, os
 
         def cpu_percent():
@@ -417,19 +553,15 @@ def register_routes(app):
                 available = data.get("MemAvailable", 0)
                 used     = total - available
                 pct      = round(100.0 * used / total, 1) if total else 0.0
-                return {
-                    "total_mb": round(total / 1024),
-                    "used_mb":  round(used  / 1024),
-                    "pct":      pct,
-                }
+                return {"total_mb": round(total / 1024),
+                        "used_mb":  round(used  / 1024),
+                        "pct":      pct}
             except Exception:
                 return None
 
         def disk_info():
             try:
-                out = subprocess.check_output(
-                    ["df", "-BM", "/"], text=True
-                ).splitlines()[1]
+                out = subprocess.check_output(["df", "-BM", "/"], text=True).splitlines()[1]
                 parts = out.split()
                 total = int(parts[1].rstrip("M"))
                 used  = int(parts[2].rstrip("M"))
@@ -462,12 +594,7 @@ def register_routes(app):
                     mask = cidr.split("/")[1] if "/" in cidr else ""
                     if iface == "lo":
                         continue
-                    interfaces.append({
-                        "interface": iface,
-                        "ip":        ip,
-                        "cidr":      cidr,
-                        "mask":      mask,
-                    })
+                    interfaces.append({"interface": iface, "ip": ip, "cidr": cidr, "mask": mask})
             except Exception:
                 pass
             return interfaces
@@ -490,10 +617,7 @@ def register_routes(app):
             "cpu":      cpu_percent(),
             "memory":   mem_info(),
             "disk":     disk_info(),
-            "tools": {
-                "nmap":   tool_ok("nmap"),
-                "tshark": tool_ok("tshark"),
-            },
+            "tools": {"nmap": tool_ok("nmap"), "tshark": tool_ok("tshark")},
             "interfaces": net_info(),
         })
 
@@ -513,7 +637,6 @@ def register_routes(app):
 # search terms (CVE + attack name + MITRE ATT&CK ID) on every flag.
 # ---------------------------------------------------------------------------
 
-# Each entry is (severity, reason, search_terms).
 FLAGGED_PORTS = {
     21:   ("high",     "FTP is unencrypted and should not be exposed",
            ["FTP credential sniffing", "T1040", "T1021"]),
@@ -541,7 +664,6 @@ FLAGGED_PORTS = {
            ["PostgreSQL brute force", "database enumeration", "T1078"]),
 }
 
-# Each entry is (substring, severity, reason, search_terms).
 FLAGGED_VERSION_SUBSTRINGS = [
     ("OpenSSH 5.", "critical", "Outdated OpenSSH version with known critical vulnerabilities",
      ["OpenSSH 5 CVE", "CVE-2016-0777", "user enumeration"]),
@@ -557,7 +679,6 @@ FLAGGED_VERSION_SUBSTRINGS = [
      ["OpenSSL 1.0 Heartbleed", "CVE-2014-0160", "CVE-2016-2107"]),
 ]
 
-# Each entry is (reason, search_terms).
 INFO_PORTS = {
     443: ("HTTPS present — encrypted web traffic",
           ["TLS hardening", "HSTS configuration", "Mozilla SSL Configuration Generator"]),
@@ -671,18 +792,12 @@ def _flag_traffic_findings(traffic: list) -> list:
 
 def flag_findings(findings: list, traffic_findings: list = None) -> list:
     flags = _flag_port_findings(findings)
-
     if traffic_findings:
         flags.extend(_flag_traffic_findings(traffic_findings))
-
     return flags
 
 # ---------------------------------------------------------------------------
 # End of section added for testing.
-# ---------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------
-# Entry point
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
