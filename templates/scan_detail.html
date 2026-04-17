@@ -3,77 +3,424 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Network Lock Security — Scan #{{ scan['id'] }}</title>
+  <title>Network Lock Security — Scan #{{ scan['id'][:8] }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      --bg-base:    #0d1117;
+      --bg-surface: #161b22;
+      --bg-raised:  #1c2128;
+      --border:     #30363d;
+      --border-dim: #21262d;
+      --blue:       #58a6ff;
+      --green:      #56d364;
+      --red:        #f85149;
+      --orange:     #f0883e;
+      --yellow:     #e3b341;
+      --text-primary:   #e6edf3;
+      --text-secondary: #c9d1d9;
+      --text-muted:     #8b949e;
+      --text-dim:       #484f58;
+      --font-display: 'Rajdhani', sans-serif;
+      --font-mono:    'Share Tech Mono', monospace;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Courier New', monospace; background: #0d1117; color: #c9d1d9; min-height: 100vh; }
-    header { background: #161b22; border-bottom: 1px solid #30363d; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
-    header h1 { font-size: 1.1rem; color: #58a6ff; letter-spacing: 0.1em; }
-    nav a { color: #8b949e; font-size: 0.8rem; text-decoration: none; }
-    nav a:hover { color: #c9d1d9; }
-    main { max-width: 960px; margin: 2rem auto; padding: 0 1.5rem; }
-    .card { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 1.5rem; margin-bottom: 1.5rem; }
-    .card h2 { font-size: 0.85rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 1rem; }
-    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
-    .meta-item label { display: block; font-size: 0.72rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.25rem; }
-    .meta-item span { font-size: 0.95rem; color: #e6edf3; }
-    .badge { display: inline-block; border-radius: 3px; font-size: 0.72rem; padding: 0.15rem 0.5rem; font-weight: 600; }
-    .badge-running   { background: #1f4d7a; color: #79c0ff; }
-    .badge-completed { background: #1a3a2a; color: #56d364; }
-    .badge-failed    { background: #4a1a1a; color: #f85149; }
-    .host-block { border: 1px solid #21262d; border-radius: 4px; margin-bottom: 0.75rem; overflow: hidden; }
-    .host-header { background: #1c2128; padding: 0.6rem 1rem; font-size: 0.9rem; color: #e6edf3; }
-    .host-header small { color: #8b949e; font-size: 0.78rem; margin-left: 0.5rem; }
-    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
-    th { text-align: left; padding: 0.4rem 1rem; font-size: 0.72rem; color: #8b949e; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 1px solid #30363d; background: #161b22; }
-    td { padding: 0.45rem 1rem; border-bottom: 1px solid #21262d; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-base);
+      color: var(--text-secondary);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    header {
+      position: relative;
+      z-index: 10;
+      background: rgba(22,27,34,0.97);
+      border-bottom: 1px solid var(--border);
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      backdrop-filter: blur(8px);
+    }
+
+    .header-left { display: flex; align-items: center; gap: 1rem; }
+    .header-left img { height: 38px; filter: drop-shadow(0 0 8px rgba(88,166,255,0.4)); }
+
+    .header-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.05em;
+    }
+    .header-title span { color: var(--blue); }
+
+    .header-nav { display: flex; align-items: center; gap: 0.25rem; margin-left: 2rem; }
+
+    .nav-link {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 0.35rem 0.85rem;
+      border-radius: 4px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .nav-link:hover { color: var(--text-primary); background: var(--bg-raised); }
+
+    .team-tag {
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: 1px solid var(--border-dim);
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem 4rem;
+    }
+
+    /* ── Meta strip ── */
+    .meta-strip {
+      background: rgba(22,27,34,0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-top: 2px solid var(--blue);
+      border-radius: 0 0 6px 6px;
+      padding: 1rem 1.5rem;
+      margin-bottom: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1.25rem;
+    }
+    .meta-item label {
+      display: block;
+      font-size: 0.62rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.2rem;
+    }
+    .meta-item span  { font-size: 0.85rem; color: var(--text-primary); }
+    .meta-item span.blue { color: var(--blue); }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      border-radius: 20px;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.15rem 0.55rem;
+    }
+    .badge::before { content:''; width:5px; height:5px; border-radius:50%; }
+    .badge-completed { background: rgba(86,211,100,0.1);  color: var(--green); border: 1px solid rgba(86,211,100,0.25); }
+    .badge-completed::before { background: var(--green); }
+    .badge-failed    { background: rgba(248,81,73,0.1);   color: var(--red);   border: 1px solid rgba(248,81,73,0.25); }
+    .badge-failed::before    { background: var(--red); }
+    .badge-running   { background: rgba(88,166,255,0.12); color: var(--blue);  border: 1px solid rgba(88,166,255,0.3); }
+    .badge-running::before   { background: var(--blue); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+    /* ── Cards ── */
+    .card {
+      background: rgba(22,27,34,0.55);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    .card-title {
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .card-count {
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+    }
+
+    /* ── Flag severity badges ── */
+    .sev-badge {
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+      min-width: 68px;
+      text-align: center;
+    }
+    .sev-critical { background: rgba(248,81,73,0.15);   color: var(--red);    border: 1px solid rgba(248,81,73,0.4); }
+    .sev-high     { background: rgba(240,136,62,0.15);  color: var(--orange); border: 1px solid rgba(240,136,62,0.4); }
+    .sev-medium   { background: rgba(227,179,65,0.15);  color: var(--yellow); border: 1px solid rgba(227,179,65,0.4); }
+    .sev-info     { background: rgba(88,166,255,0.12);  color: var(--blue);   border: 1px solid rgba(88,166,255,0.35); }
+
+    /* ── Flag group ── */
+    .flag-group {
+      margin-bottom: 1.25rem;
+    }
+    .flag-group:last-child { margin-bottom: 0; }
+
+    .flag-group-header {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .flag-group-header::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border-dim), transparent);
+    }
+
+    .flag-row {
+      display: grid;
+      grid-template-columns: 85px 170px 1fr;
+      gap: 1rem;
+      padding: 0.65rem 0.85rem;
+      border-left: 3px solid transparent;
+      border-radius: 3px;
+      margin-bottom: 0.3rem;
+      align-items: center;
+      background: rgba(22,27,34,0.35);
+    }
+    .flag-row.sev-row-critical { border-left-color: var(--red); }
+    .flag-row.sev-row-high     { border-left-color: var(--orange); }
+    .flag-row.sev-row-medium   { border-left-color: var(--yellow); }
+    .flag-row.sev-row-info     { border-left-color: var(--blue); }
+
+    .flag-target {
+      font-size: 0.82rem;
+      color: var(--text-primary);
+    }
+    .flag-target .port {
+      color: var(--text-muted);
+      font-size: 0.78rem;
+    }
+    .flag-reason {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .empty-flags {
+      text-align: center;
+      padding: 1.5rem 0.75rem;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+    .empty-flags .icon {
+      font-size: 1.8rem;
+      color: var(--green);
+      margin-bottom: 0.5rem;
+    }
+
+    /* ── Hosts ── */
+    .host-block {
+      border: 1px solid var(--border-dim);
+      border-radius: 4px;
+      margin-bottom: 0.85rem;
+      overflow: hidden;
+    }
+    .host-header {
+      background: var(--bg-raised);
+      padding: 0.7rem 1rem;
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .host-header .ip { font-weight: 600; color: var(--blue); }
+    .host-header small { color: var(--text-muted); font-size: 0.75rem; }
+    .host-header .spacer { flex: 1; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.83rem; }
+    th {
+      text-align: left;
+      padding: 0.5rem 1rem;
+      font-size: 0.66rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      border-bottom: 1px solid var(--border-dim);
+      background: rgba(22,27,34,0.6);
+      font-family: var(--font-display);
+    }
+    td {
+      padding: 0.5rem 1rem;
+      border-bottom: 1px solid var(--border-dim);
+      color: var(--text-secondary);
+    }
     tr:last-child td { border-bottom: none; }
-    .empty { color: #8b949e; font-size: 0.85rem; padding: 1rem; }
-    a { color: #58a6ff; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    .actions { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
-    .btn { background: #21262d; border: 1px solid #30363d; border-radius: 4px; color: #c9d1d9; font-family: inherit; font-size: 0.82rem; padding: 0.4rem 1rem; text-decoration: none; }
-    .btn:hover { background: #30363d; }
+
+    .empty { color: var(--text-muted); font-size: 0.85rem; padding: 1rem; }
+
+    .btn {
+      display: inline-block;
+      background: rgba(88,166,255,0.08);
+      border: 1px solid rgba(88,166,255,0.25);
+      border-radius: 4px;
+      color: var(--blue);
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 0.45rem 1rem;
+      text-decoration: none;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .btn:hover {
+      background: rgba(88,166,255,0.16);
+      border-color: var(--blue);
+    }
+
+    .actions { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; }
   </style>
 </head>
 <body>
+
   <header>
-    <div style="display:flex; align-items:center; gap:1rem;">
-      <img src="/static/logo.png" style="height:48px; filter:drop-shadow(0 0 8px rgba(88,166,255,0.4));">
-      <span style="font-family:sans-serif; font-size:1.3rem; font-weight:700; color:#e6edf3; letter-spacing:0.05em;">Network <span style="color:#58a6ff;">Lock</span> Security</span>
-      <nav style="display:flex; gap:0.25rem; margin-left:1.5rem;">
-        <a href="/"        style="font-size:0.82rem; color:#8b949e; text-decoration:none; padding:0.3rem 0.75rem; border-radius:4px;">Dashboard</a>
-        <a href="/history" style="font-size:0.82rem; color:#8b949e; text-decoration:none; padding:0.3rem 0.75rem; border-radius:4px;">Scan History</a>
-        <a href="/reports" style="font-size:0.82rem; color:#8b949e; text-decoration:none; padding:0.3rem 0.75rem; border-radius:4px;">Reports</a>
+    <div class="header-left">
+      <img src="/static/logo.png" alt="Network Lock Security">
+      <span class="header-title">Network <span>Lock</span> Security</span>
+      <nav class="header-nav">
+        <a href="/"        class="nav-link">Dashboard</a>
+        <a href="/history" class="nav-link">Scan History</a>
+        <a href="/reports" class="nav-link">Reports</a>
       </nav>
     </div>
-    <nav><a href="/" style="color:#8b949e; font-size:0.8rem; text-decoration:none;">&larr; Dashboard</a></nav>
+    <div style="display:flex; align-items:center; gap:1rem;">
+      <a href="/" class="nav-link">&#8592; Dashboard</a>
+      <span class="team-tag">Team 3 &mdash; ITP 258</span>
+    </div>
   </header>
 
   <main>
-    <div class="meta-grid">
-      <div class="meta-item"><label>Scan ID</label><span>{{ scan['id'] }}</span></div>
-      <div class="meta-item"><label>Target</label><span>{{ scan['target_cidr'] }}</span></div>
-      <div class="meta-item"><label>Status</label><span><span class="badge badge-{{ scan['status'] }}">{{ scan['status'] }}</span></span></div>
-      <div class="meta-item"><label>Started</label><span>{{ scan['started_at'] }}</span></div>
-      <div class="meta-item"><label>Completed</label><span>{{ scan['completed_at'] or '—' }}</span></div>
+    <!-- ── Scan metadata strip ── -->
+    <div class="meta-strip">
+      <div class="meta-item"><label>Scan ID</label>   <span>{{ scan['id'][:8] }}...</span></div>
+      <div class="meta-item"><label>Target</label>    <span class="blue">{{ scan['target_cidr'] }}</span></div>
+      <div class="meta-item"><label>Status</label>    <span><span class="badge badge-{{ scan['status'] }}">{{ scan['status'] }}</span></span></div>
+      <div class="meta-item"><label>Started</label>   <span>{{ scan['started_at'] | to_est }}</span></div>
+      <div class="meta-item"><label>Completed</label> <span>{{ (scan['completed_at'] | to_est) if scan['completed_at'] else '—' }}</span></div>
       <div class="meta-item"><label>Hosts Found</label><span>{{ hosts_with_ports | length }}</span></div>
     </div>
 
     <div class="actions">
-      <a class="btn" href="/scan/{{ scan['id'] }}/report">View Report</a>
+      <a class="btn" href="/scan/{{ scan['id'] }}/report">View Full Report</a>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
+    <!-- ── Flagged Concerns — headline section ── -->
+    <!-- ═══════════════════════════════════════════════════════════════════ -->
     <div class="card">
-      <h2>Discovered Hosts ({{ hosts_with_ports | length }})</h2>
+      <div class="card-header">
+        <span class="card-title">Flagged Concerns</span>
+        <span class="card-count">{{ flags | length }} finding{{ 's' if flags | length != 1 else '' }}</span>
+      </div>
+
+      {% if flags %}
+        {% set sev_order = ['critical', 'high', 'medium', 'info'] %}
+        {% for sev in sev_order %}
+          {% set group = flags | selectattr('severity', 'equalto', sev) | list %}
+          {% if group %}
+            <div class="flag-group">
+              <div class="flag-group-header">
+                <span class="sev-badge sev-{{ sev }}">{{ sev }}</span>
+                <span>{{ group | length }} finding{{ 's' if group | length != 1 else '' }}</span>
+              </div>
+              {% for flag in group %}
+              <div class="flag-row sev-row-{{ sev }}">
+                <div><span class="sev-badge sev-{{ sev }}">{{ sev }}</span></div>
+                <div class="flag-target">
+                  {{ flag['host'] }}{% if flag['port'] %}<span class="port"> :{{ flag['port'] }}</span>{% endif %}
+                </div>
+                <div class="flag-reason">{{ flag['reason'] }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% else %}
+        <div class="empty-flags">
+          <div class="icon">&#10003;</div>
+          <p>No concerns flagged for this scan.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Discovered hosts ── -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Discovered Hosts</span>
+        <span class="card-count">{{ hosts_with_ports | length }} host{{ 's' if hosts_with_ports | length != 1 else '' }}</span>
+      </div>
+
       {% if hosts_with_ports %}
         {% for item in hosts_with_ports %}
         <div class="host-block">
           <div class="host-header">
-            {{ item.host['ip_address'] }}
+            <span class="ip">{{ item.host['ip_address'] }}</span>
             {% if item.host['hostname'] %}<small>{{ item.host['hostname'] }}</small>{% endif %}
             {% if item.host['os_guess'] %}<small>{{ item.host['os_guess'] }}</small>{% endif %}
-            <small style="float:right">{{ item.ports | length }} open port(s)</small>
+            <span class="spacer"></span>
+            <small>{{ item.ports | length }} open port{{ 's' if item.ports | length != 1 else '' }}</small>
           </div>
           {% if item.ports %}
           <table>
@@ -108,8 +455,13 @@
       {% endif %}
     </div>
 
+    <!-- ── Traffic findings ── -->
     <div class="card">
-      <h2>Traffic Findings ({{ traffic | length }})</h2>
+      <div class="card-header">
+        <span class="card-title">Traffic Findings</span>
+        <span class="card-count">{{ traffic | length }} capture{{ 's' if traffic | length != 1 else '' }}</span>
+      </div>
+
       {% if traffic %}
       <table>
         <thead>
@@ -124,11 +476,11 @@
         <tbody>
           {% for t in traffic %}
           <tr>
-            <td>{{ t['capture_start'] }}</td>
-            <td>{{ t['capture_end'] or '—' }}</td>
-            <td style="font-size:0.78rem; color:#8b949e;">{{ t['protocol_summary'] or '—' }}</td>
-            <td>{% if t['cleartext_creds_found'] %}<span style="color:#f85149;">YES</span>{% else %}<span style="color:#56d364;">No</span>{% endif %}</td>
-            <td style="font-size:0.78rem; color:#8b949e;">{{ t['pcap_path'] }}</td>
+            <td>{{ t['capture_start'] | to_est }}</td>
+            <td>{{ (t['capture_end'] | to_est) if t['capture_end'] else '—' }}</td>
+            <td style="font-size:0.78rem; color:var(--text-muted);">{{ t['protocol_summary'] or '—' }}</td>
+            <td>{% if t['cleartext_creds_found'] %}<span style="color:var(--red); font-weight:600;">YES</span>{% else %}<span style="color:var(--green);">No</span>{% endif %}</td>
+            <td style="font-size:0.78rem; color:var(--text-muted);">{{ t['pcap_path'] }}</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -137,6 +489,7 @@
       <p class="empty">No traffic findings recorded.</p>
       {% endif %}
     </div>
+
   </main>
 </body>
 </html>
