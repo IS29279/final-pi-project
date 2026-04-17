@@ -421,10 +421,11 @@ def register_routes(app):
 
 # ---------------------------------------------------------------------------
 # Added by Channing - Beginning of section added for testing.
+# Extended in Sprint 2 to cover traffic findings and info-tier flags.
 # ---------------------------------------------------------------------------
 
 # ── Findings Flagging ────────────────────────────────────────────────────
-# Each finding dict passed in matches the shape returned by get_ports()
+# Each port finding dict passed in matches the shape returned by get_ports()
 # in utils/db.py (sqlite3.Row keys):
 #
 #   {
@@ -436,11 +437,24 @@ def register_routes(app):
 #       "service_version": "OpenSSH 5.3",
 #   }
 #
+# Each traffic finding dict passed in matches the shape returned by
+# get_traffic_findings() (sqlite3.Row keys from traffic_findings):
+#
+#   {
+#       "id":                    "uuid",
+#       "session_id":            "uuid",
+#       "pcap_path":             "reports/capture_<id>.pcap",
+#       "protocol_summary":      "tcp:142, http:38, dns:12, telnet:4",
+#       "cleartext_creds_found": 1,         ← SQLite stores bools as 0/1
+#       "capture_start":         1729...,
+#       "capture_end":           1729...,
+#   }
+#
 # Returns a list of flag dicts:
 #   {
-#       "host":     "192.168.1.10",
-#       "port":     22,
-#       "severity": "high",
+#       "host":     "192.168.1.10" or "network" (for traffic flags),
+#       "port":     22 or None (for traffic flags),
+#       "severity": "critical" | "high" | "medium" | "info",
 #       "reason":   "SSH exposed on default port 22",
 #   }
 
@@ -468,12 +482,28 @@ FLAGGED_VERSION_SUBSTRINGS = [
     ("OpenSSL/1.0", "high",    "Outdated OpenSSL 1.0.x — vulnerable to multiple CVEs"),
 ]
 
-def flag_findings(findings: list) -> list:
-    """
-    Analyse a list of port/service finding dicts and return flagged concerns.
-    Keys must match the utils/db.py schema: port_number, service_version, etc.
-    The caller is responsible for adding a 'host' key from the hosts table.
-    """
+# ── Info-tier emitters (Sprint 2) ────────────────────────────────────────
+# Ports that are inherently "good" to see — encrypted/modern.
+# Emits an info flag so the report has a positive finding to show on
+# well-configured hosts, rather than just an empty list.
+INFO_PORTS = {
+    443: "HTTPS present — encrypted web traffic",
+    993: "IMAPS present — encrypted mail retrieval",
+    995: "POP3S present — encrypted mail retrieval",
+}
+
+# Modern SSH version substrings — if SSH is seen running one of these,
+# emit an info flag (the default-port high-severity flag for port 22 still
+# fires separately — a defensive version doesn't cancel out default-port exposure).
+MODERN_SSH_SUBSTRINGS = ("OpenSSH 8.", "OpenSSH 9.", "OpenSSH 10.")
+
+# Protocols we consider cleartext for the purposes of traffic flagging.
+# Mirrors the set used by run_tshark_capture() in orchestrator.py.
+CLEARTEXT_PROTOCOLS = {"telnet", "ftp", "http"}
+
+
+def _flag_port_findings(findings: list) -> list:
+    """Port-based and version-based flags, plus info-tier positive findings."""
     flags = []
 
     for finding in findings:
@@ -481,7 +511,7 @@ def flag_findings(findings: list) -> list:
         port_number     = finding.get("port_number")
         service_version = finding.get("service_version", "") or ""
 
-        # Port-based flags
+        # ── Port-based (critical/high/medium) ────────────────────────────
         if port_number in FLAGGED_PORTS:
             severity, reason = FLAGGED_PORTS[port_number]
             flags.append({
@@ -491,7 +521,7 @@ def flag_findings(findings: list) -> list:
                 "reason":   reason,
             })
 
-        # Version string flags
+        # ── Version string (critical/high) ───────────────────────────────
         for substring, severity, reason in FLAGGED_VERSION_SUBSTRINGS:
             if substring.lower() in service_version.lower():
                 flags.append({
@@ -502,9 +532,100 @@ def flag_findings(findings: list) -> list:
                 })
                 break  # one version flag per finding
 
+        # ── Info-tier: encrypted/modern services ─────────────────────────
+        # Port-based info flag (HTTPS, IMAPS, etc.)
+        if port_number in INFO_PORTS:
+            flags.append({
+                "host":     host,
+                "port":     port_number,
+                "severity": "info",
+                "reason":   INFO_PORTS[port_number],
+            })
+
+        # Modern SSH on a NON-standard port is worth noting positively.
+        # If SSH is on port 22 the high-severity flag has already fired;
+        # the info flag would just be noise there.
+        if port_number != 22 and any(
+            m.lower() in service_version.lower() for m in MODERN_SSH_SUBSTRINGS
+        ):
+            flags.append({
+                "host":     host,
+                "port":     port_number,
+                "severity": "info",
+                "reason":   "SSH on non-standard port with modern version — defensive configuration",
+            })
+
     return flags
 
-# --------------------------------------------------------------------------- 
+
+def _flag_traffic_findings(traffic: list) -> list:
+    """
+    Traffic-based flags derived from tshark capture rows.
+
+    Rules:
+      - cleartext_creds_found truthy  → critical ("live credentials on the wire")
+      - else, HTTP/FTP/Telnet in summary → medium ("unencrypted traffic observed")
+      - else, non-empty summary       → info    ("only encrypted protocols observed")
+
+    An empty or missing summary means nothing useful was captured — no flag.
+    """
+    flags = []
+
+    for row in traffic:
+        cleartext = bool(row.get("cleartext_creds_found"))
+        summary   = (row.get("protocol_summary") or "").lower()
+
+        if cleartext:
+            flags.append({
+                "host":     "network",
+                "port":     None,
+                "severity": "critical",
+                "reason":   "Cleartext credentials observed in capture — live evidence of unencrypted login traffic",
+            })
+            continue  # don't also emit a medium when we've already flagged critical
+
+        # Look for any cleartext protocol name in the summary string.
+        # Format is "tcp:142, http:38, dns:12" — substring match is sufficient.
+        cleartext_in_summary = any(proto in summary for proto in CLEARTEXT_PROTOCOLS)
+
+        if cleartext_in_summary:
+            flags.append({
+                "host":     "network",
+                "port":     None,
+                "severity": "medium",
+                "reason":   "Unencrypted traffic observed in capture (HTTP/FTP/Telnet) — confirms plaintext protocols are in active use",
+            })
+        elif summary.strip():
+            flags.append({
+                "host":     "network",
+                "port":     None,
+                "severity": "info",
+                "reason":   "Only encrypted protocols observed during capture — baseline confirmation",
+            })
+        # else: empty summary → nothing captured, no flag
+
+    return flags
+
+
+def flag_findings(findings: list, traffic_findings: list = None) -> list:
+    """
+    Analyse scanner output and return a list of flagged concerns.
+
+    Args:
+        findings:         list of port/service dicts (caller adds 'host' from hosts table).
+        traffic_findings: optional list of traffic_findings rows for the same session.
+
+    Returns:
+        list of flag dicts with keys: host, port, severity, reason.
+    """
+    flags = _flag_port_findings(findings)
+
+    if traffic_findings:
+        flags.extend(_flag_traffic_findings(traffic_findings))
+
+    return flags
+
+# ---------------------------------------------------------------------------
 # End of section added for testing.
 # ---------------------------------------------------------------------------
 
