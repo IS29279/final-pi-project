@@ -1,0 +1,280 @@
+<!-- Login page for Network Lock Security -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Network Lock Security &mdash; Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base:    #0d1117;
+      --bg-surface: #161b22;
+      --bg-raised:  #1c2128;
+      --border:     #30363d;
+      --border-dim: #21262d;
+      --blue:       #58a6ff;
+      --green:      #56d364;
+      --red:        #f85149;
+      --amber:      #e3b341;
+      --text-primary:   #e6edf3;
+      --text-secondary: #c9d1d9;
+      --text-muted:     #8b949e;
+      --text-dim:       #484f58;
+      --font-display: 'Rajdhani', sans-serif;
+      --font-mono:    'Share Tech Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-mono);
+      background: var(--bg-base);
+      color: var(--text-secondary);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--blue), transparent);
+      animation: scanline 5s linear infinite;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    @keyframes scanline {
+      0%   { transform: translateY(0); opacity: 1; }
+      95%  { opacity: 1; }
+      100% { transform: translateY(100vh); opacity: 0; }
+    }
+
+    .login-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 420px;
+      padding: 0 1.5rem;
+      animation: fadeUp 0.5s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .login-brand {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .login-brand img {
+      height: 56px;
+      filter: drop-shadow(0 0 12px rgba(88,166,255,0.4));
+      margin-bottom: 0.85rem;
+    }
+
+    .login-brand h1 {
+      font-family: var(--font-display);
+      font-size: 1.55rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: 0.06em;
+    }
+
+    .login-brand h1 span { color: var(--blue); }
+
+    .login-brand .tag {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+    }
+
+    .login-card {
+      background: rgba(22,27,34,0.55);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(48,54,61,0.7);
+      border-top: 2px solid var(--blue);
+      border-radius: 0 0 8px 8px;
+      padding: 2rem 2.25rem 1.75rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(88,166,255,0.6), transparent);
+      animation: scanline 4s linear infinite;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    .section-label {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), transparent);
+    }
+
+    .form-group { margin-bottom: 1.1rem; }
+
+    .form-group label {
+      display: block;
+      font-size: 0.68rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    .form-group input {
+      width: 100%;
+      background: var(--bg-base);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-primary);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      padding: 0.7rem 0.95rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(88,166,255,0.1);
+    }
+
+    .btn-signin {
+      width: 100%;
+      background: var(--blue);
+      border: none;
+      border-radius: 4px;
+      color: #0d1117;
+      cursor: pointer;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.75rem;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+      transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+    }
+
+    .btn-signin:hover {
+      background: #79c0ff;
+      box-shadow: 0 0 18px rgba(88,166,255,0.4);
+    }
+
+    .btn-signin:active { transform: scale(0.98); }
+
+    .flash-error {
+      background: rgba(248,81,73,0.08);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-left: 3px solid var(--red);
+      border-radius: 4px;
+      color: var(--red);
+      font-size: 0.78rem;
+      padding: 0.65rem 0.9rem;
+      margin-bottom: 1.1rem;
+      letter-spacing: 0.02em;
+    }
+
+    .login-foot {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.68rem;
+      color: var(--text-dim);
+      letter-spacing: 0.08em;
+    }
+
+    .login-foot .team-tag {
+      display: inline-block;
+      border: 1px solid var(--border-dim);
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-wrap">
+
+    <div class="login-brand">
+      <img src="/static/logo.png" alt="Network Lock Security">
+      <h1>Network <span>Lock</span> Security</h1>
+      <div class="tag">Authorized Access Only</div>
+    </div>
+
+    <div class="login-card">
+      <div class="section-label">Authenticate</div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash-error">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST" action="/login">
+        <div class="form-group">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autocomplete="username" autofocus required>
+        </div>
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" autocomplete="current-password" required>
+        </div>
+        <button type="submit" class="btn-signin">Sign In</button>
+      </form>
+    </div>
+
+    <div class="login-foot">
+      <div>Network Lock Security &mdash; Pi Intrusion Testing Appliance</div>
+      <div class="team-tag">Team 3 &mdash; ITP 258</div>
+    </div>
+
+  </div>
+
+</body>
+</html>
