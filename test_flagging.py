@@ -171,6 +171,7 @@ class TestFlagFindingsBasicBehaviour:
             assert "port"     in flag, f"Flag missing 'port': {flag}"
             assert "severity" in flag, f"Flag missing 'severity': {flag}"
             assert "reason"   in flag, f"Flag missing 'reason': {flag}"
+            assert "search_terms" in flag, f"Flag missing 'search_terms': {flag}"
 
     def test_severity_values_are_valid(self):
         """Severity must be one of the four defined levels — nothing else."""
