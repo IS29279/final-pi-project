@@ -272,7 +272,7 @@ class TestScanDetail:
         app = create_app()
         app.config["TESTING"] = True
         with app.test_client() as client:
-           client.post("/login", data={
+            client.post("/login", data={
                 "username": "admin",
                 "password": "K7mT-vR2nQ9xLpWz"
             })
