@@ -16,6 +16,11 @@ def client():
     app.config["TESTING"] = True
     app.config["WTF_CSRF_ENABLED"] = False
     with app.test_client() as client:
+        # Log in so the session cookie is set for all subsequent requests
+        client.post("/login", data={
+            "username": "admin",
+            "password": "K7mT-vR2nQ9xLpWz"
+        })
         yield client
 
 
@@ -226,6 +231,10 @@ class TestScanDetail:
         app = create_app()
         app.config["TESTING"] = True
         with app.test_client() as client:
+            client.post("/login", data={
+                "username": "admin",
+                "password": "K7mT-vR2nQ9xLpWz"
+            })
             fake_uuid = "00000000-0000-0000-0000-000000000000"
             response = client.get(f"/api/scan-detail/{fake_uuid}")
             assert response.status_code == 200
@@ -245,6 +254,10 @@ class TestScanDetail:
         app = create_app()
         app.config["TESTING"] = True
         with app.test_client() as client:
+            client.post("/login", data={
+                "username": "admin",
+                "password": "K7mT-vR2nQ9xLpWz"
+            })
             fake_uuid = "00000000-0000-0000-0000-000000000001"
             response = client.get(f"/api/scan-detail/{fake_uuid}")
             data = response.get_json()
@@ -259,6 +272,10 @@ class TestScanDetail:
         app = create_app()
         app.config["TESTING"] = True
         with app.test_client() as client:
+           client.post("/login", data={
+                "username": "admin",
+                "password": "K7mT-vR2nQ9xLpWz"
+            })
             for bad_id in ["abc", "not-a-uuid", "99999"]:
                 response = client.get(f"/api/scan-detail/{bad_id}")
                 assert response.status_code == 200, (
