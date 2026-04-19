@@ -276,8 +276,8 @@ class TestScanDetail:
                 "username": "admin",
                 "password": "K7mT-vR2nQ9xLpWz"
             })
-            for bad_id in ["abc", "not-a-uuid", "99999"]:
-                response = client.get(f"/api/scan-detail/{bad_id}")
-                assert response.status_code == 200, (
-                    f"ID '{bad_id}' caused a {response.status_code} — expected 200 with empty lists"
-                )
+                for bad_id in ["abc", "not-a-uuid", "99999"]:
+                    response = client.get(f"/api/scan-detail/{bad_id}")
+                    assert response.status_code == 200, (
+                        f"ID '{bad_id}' caused a {response.status_code} — expected 200 with empty lists"
+                    )
