@@ -45,13 +45,12 @@ _active_scan = {
 # Authentication
 # ---------------------------------------------------------------------------
 
-# Shared demo credentials. The hash is generated once on the developer's
-# machine with werkzeug.security.generate_password_hash() and pasted in
-# here — the plaintext password is never stored in source.
-#
-# To generate: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('K7mT-vR2nQ9xLpWz'))"
-AUTH_USERNAME = "admin"
-AUTH_PASSWORD_HASH = "scrypt:32768:8:1$Q0jljQVf2HJzE7Ly$ef3ab7d9b8badcc68d886e55c896bf1cb9092daa1b8c01f1bbcce9a3b36bde2f29c3f67d93575ef713d56471311704ec05c6b38f91072bdbd06e01f79e3daedf"  # ← replace with output of the command above
+# Shared demo credentials for ITP 258. The plaintext password is hashed
+# at import time with a random salt, so check_password_hash still does
+# real work at login. Change before any real deployment.
+AUTH_USERNAME      = "admin"
+AUTH_PASSWORD      = "K7mT-vR2nQ9xLpWz"
+AUTH_PASSWORD_HASH = generate_password_hash(AUTH_PASSWORD)
 
 
 def login_required(view):
@@ -325,8 +324,7 @@ def build_report_summary(scan, hosts_with_ports, flags):
 def create_app():
     app = Flask(__name__)
     # Real secret key — generated once with secrets.token_hex(32).
-    # To generate: python -c "import secrets; print(secrets.token_hex(32))"
-    app.secret_key = "95bcbeba2c982db5a75c0f152d16fda05c324d67341d49e333165463576dd25fe"  # ← replace with output of the command above
+    app.secret_key = "95bcbeba2c982db5a75c0f152d16fda05c324d67341d49e333165463576dd25fe"
     app.permanent_session_lifetime = datetime.timedelta(hours=2)
 
     with app.app_context():
