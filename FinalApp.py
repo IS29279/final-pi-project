@@ -4,18 +4,26 @@ Pi Intrusion Testing Appliance - Flask Web Application
 Team 3 / ITP 258 Sprint 2
 
 Routes:
+  GET  /login                    - login page (shared credentials)
+  POST /login                    - authenticate
+  POST /logout                   - clear session
   GET  /                         - dashboard: list all scans
   GET  /scan/<id>                - scan detail: hosts, ports, traffic events, flagged concerns
   GET  /scan/<id>/report         - view the generated report for a scan (rich HTML)
   POST /scan/start               - kick off a new scan (accepts target and duration)
   POST /admin/regenerate-reports - one-time: rebuild text reports for every scan in the DB
   GET  /status                   - JSON health check endpoint
+
+All routes other than /login require a valid session.
 """
 
+import functools
 import threading
 import datetime
 from collections import Counter
-from flask import Flask, render_template, request, redirect, url_for, jsonify, abort, send_file, Response
+from flask import (Flask, render_template, request, redirect, url_for,
+                   jsonify, abort, send_file, Response, session, flash)
+from werkzeug.security import generate_password_hash, check_password_hash
 
 from utils.db import (
     init_db,
@@ -31,6 +39,29 @@ _active_scan = {
     "stop_event": None,
     "thread":     None,
 }
+
+
+# ---------------------------------------------------------------------------
+# Authentication
+# ---------------------------------------------------------------------------
+
+# Shared demo credentials. The hash is generated once on the developer's
+# machine with werkzeug.security.generate_password_hash() and pasted in
+# here — the plaintext password is never stored in source.
+#
+# To generate: python -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('K7mT-vR2nQ9xLpWz'))"
+AUTH_USERNAME = "admin"
+AUTH_PASSWORD_HASH = "scrypt:32768:8:1$Q0jljQVf2HJzE7Ly$ef3ab7d9b8badcc68d886e55c896bf1cb9092daa1b8c01f1bbcce9a3b36bde2f29c3f67d93575ef713d56471311704ec05c6b38f91072bdbd06e01f79e3daedf"  # ← replace with output of the command above
+
+
+def login_required(view):
+    """Redirect unauthenticated requests to the login page."""
+    @functools.wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("logged_in"):
+            return redirect(url_for("login"))
+        return view(*args, **kwargs)
+    return wrapped
 
 
 # ---------------------------------------------------------------------------
@@ -293,7 +324,10 @@ def build_report_summary(scan, hosts_with_ports, flags):
 
 def create_app():
     app = Flask(__name__)
-    app.secret_key = "dev-key-change-before-demo"
+    # Real secret key — generated once with secrets.token_hex(32).
+    # To generate: python -c "import secrets; print(secrets.token_hex(32))"
+    app.secret_key = "95bcbeba2c982db5a75c0f152d16fda05c324d67341d49e333165463576dd25fe"  # ← replace with output of the command above
+    app.permanent_session_lifetime = datetime.timedelta(hours=2)
 
     with app.app_context():
         init_db()
@@ -316,7 +350,35 @@ def create_app():
 
 def register_routes(app):
 
+    # ── Auth routes ──────────────────────────────────────────────────────
+
+    @app.route("/login", methods=["GET", "POST"])
+    def login():
+        # If already signed in, skip straight to the dashboard
+        if session.get("logged_in"):
+            return redirect(url_for("dashboard"))
+
+        if request.method == "POST":
+            username = request.form.get("username", "").strip()
+            password = request.form.get("password", "")
+            if username == AUTH_USERNAME and check_password_hash(AUTH_PASSWORD_HASH, password):
+                session.clear()
+                session["logged_in"] = True
+                session.permanent = True  # triggers the 2-hour lifetime
+                return redirect(url_for("dashboard"))
+            flash("Invalid username or password", "error")
+        return render_template("login.html")
+
+    @app.route("/logout", methods=["POST"])
+    def logout():
+        session.clear()
+        return redirect(url_for("login"))
+
+
+    # ── Main app routes (all protected) ──────────────────────────────────
+
     @app.route("/")
+    @login_required
     def dashboard():
         scans = get_all_sessions()
         any_running = any(s["status"] == "running" for s in scans)
@@ -324,6 +386,7 @@ def register_routes(app):
 
 
     @app.route("/scan/<scan_id>")
+    @login_required
     def scan_detail(scan_id):
         scan = get_session(scan_id)
         if not scan:
@@ -347,6 +410,7 @@ def register_routes(app):
 
 
     @app.route("/scan/<scan_id>/report")
+    @login_required
     def scan_report(scan_id):
         """
         Render a rich, styled report page with a three-column top section:
@@ -430,6 +494,7 @@ def register_routes(app):
                          download_name=filename)
 
     @app.route("/scan/<scan_id>/export/full.pdf")
+    @login_required
     def export_full_pdf(scan_id):
         from exports import build_full_pdf
         ctx = _build_export_context(scan_id)
@@ -441,6 +506,7 @@ def register_routes(app):
                             "application/pdf")
 
     @app.route("/scan/<scan_id>/export/full.docx")
+    @login_required
     def export_full_docx(scan_id):
         from exports import build_full_docx
         ctx = _build_export_context(scan_id)
@@ -452,6 +518,7 @@ def register_routes(app):
                             "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
     @app.route("/scan/<scan_id>/export/summary.pdf")
+    @login_required
     def export_summary_pdf(scan_id):
         from exports import build_summary_pdf
         ctx = _build_export_context(scan_id)
@@ -463,6 +530,7 @@ def register_routes(app):
                             "application/pdf")
 
     @app.route("/scan/<scan_id>/export/summary.docx")
+    @login_required
     def export_summary_docx(scan_id):
         from exports import build_summary_docx
         ctx = _build_export_context(scan_id)
@@ -475,6 +543,7 @@ def register_routes(app):
 
 
     @app.route("/scan/start", methods=["POST"])
+    @login_required
     def start_scan():
         target    = request.form.get("target",    "192.168.1.0/24").strip()
         duration  = int(request.form.get("duration", 30))
@@ -504,6 +573,7 @@ def register_routes(app):
 
 
     @app.route("/scan/stop", methods=["POST"])
+    @login_required
     def stop_scan():
         stop_event = _active_scan.get("stop_event")
         if stop_event:
@@ -524,8 +594,8 @@ def register_routes(app):
                 host_ids = [h["id"] for h in hosts]
                 findings  = get_traffic_findings(stopped_id)
                 finding_id = findings[0]["id"] if findings else None
-                session    = get_session(stopped_id)
-                target     = session["target_cidr"] if session else "unknown"
+                session_row = get_session(stopped_id)
+                target     = session_row["target_cidr"] if session_row else "unknown"
                 generate_report(stopped_id, target, host_ids, finding_id)
             except Exception as e:
                 print(f"[stop] Partial report generation failed: {e}")
@@ -538,18 +608,21 @@ def register_routes(app):
 
 
     @app.route("/history")
+    @login_required
     def history():
         scans = get_all_sessions()
         return render_template("history.html", scans=scans)
 
 
     @app.route("/reports")
+    @login_required
     def reports_page():
         all_reports = get_all_reports()
         return render_template("reports.html", reports=all_reports)
 
 
     @app.route("/admin/regenerate-reports", methods=["POST"])
+    @login_required
     def regenerate_reports():
         """
         One-time admin action: rebuild the text report for every scan in the
@@ -584,12 +657,14 @@ def register_routes(app):
 
 
     @app.route("/api/scans")
+    @login_required
     def api_scans():
         sessions = get_all_sessions()
         return jsonify({"scans": [dict(s) for s in sessions]})
 
 
     @app.route("/api/scan-detail/<scan_id>")
+    @login_required
     def api_scan_detail(scan_id):
         hosts = get_hosts(scan_id)
         hosts_out = []
@@ -614,6 +689,7 @@ def register_routes(app):
 
 
     @app.route("/api/system")
+    @login_required
     def api_system():
         import subprocess, socket, re, time, os
 
@@ -715,6 +791,7 @@ def register_routes(app):
 
 
     @app.route("/status")
+    @login_required
     def status():
         sessions = get_all_sessions()
         total    = len(sessions)
