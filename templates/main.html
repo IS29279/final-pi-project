@@ -1369,12 +1369,13 @@
 
   // Captured at form submit so the active scan panel can display the real
   // value the user typed, rather than a hardcoded "30s".
-  let pendingDuration = 30;
+  let pendingDuration = parseInt(sessionStorage.getItem("pendingDuration"), 10) || 30;
 
   document.getElementById("scan-form").addEventListener("submit", function() {
     const val = parseInt(document.getElementById("duration").value, 10);
     if (!isNaN(val) && val > 0) {
       pendingDuration = val;
+      sessionStorage.setItem("pendingDuration", val);
     }
   });
 
