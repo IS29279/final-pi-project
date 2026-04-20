@@ -1125,9 +1125,14 @@
             <label for="target">Target subnet</label>
             <input type="text" id="target" name="target" value="192.168.1.0/24" required>
           </div>
-          <div class="form-group">
+          <div class="form-group" style="position: relative;">
             <label for="duration">tshark capture window (s)</label>
             <input type="number" id="duration" name="duration" value="30" min="5" max="300">
+              <div class="form-helper" style="position: absolute; top: 100%; left: 0; width: 100%; margin-top: 0.35rem;">
+              How long tshark records traffic. Total scan time will be longer —
+              nmap host discovery and service scan run first and their duration
+              depends on network conditions.
+              </div>
           </div>
           <div class="form-group">
             <label for="interface">Interface</label>
@@ -1138,11 +1143,6 @@
             <button type="submit" class="btn-scan" id="scan-btn">Run Scan</button></div>
             <button type="button" class="btn-stop" id="stop-btn" onclick="stopScan()">Stop</button>
           </div>
-        </div>
-        <div class="form-helper" style="margin-top: 0.5rem;">
-            How long tshark records traffic. Total scan time will be longer —
-            nmap host discovery and service scan run first and their duration
-            depends on network conditions.
         </div>
       </form>
     </div>
