@@ -1210,15 +1210,37 @@
 
 <script>
   // ── Helpers ───────────────────────────────────────────────────────────────
+  // Format a unix timestamp as "H:MM AM/PM EST|EDT MM/DD/YYYY" in the
+  // America/New_York zone. Uses Intl.DateTimeFormat so DST is handled
+  // automatically — no hardcoded offset, no DST bugs in April/November.
   function formatEST(unix) {
     if (!unix) return "—";
-    const d = new Date((unix - 18000) * 1000);
-    const h = d.getUTCHours(), m = String(d.getUTCMinutes()).padStart(2,"0");
-    const ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 || 12;
-    const mo = String(d.getUTCMonth()+1).padStart(2,"0");
-    const dy = String(d.getUTCDate()).padStart(2,"0");
-    const yr = d.getUTCFullYear();
-    return h12 + ":" + m + " " + ampm + " EST " + mo + "/" + dy + "/" + yr;
+    const d = new Date(unix * 1000);
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour:     "numeric",
+      minute:   "2-digit",
+      hour12:   true,
+      month:    "2-digit",
+      day:      "2-digit",
+      year:     "numeric",
+      timeZoneName: "short"
+    }).formatToParts(d);
+
+    const get = (type) => {
+      const p = parts.find(x => x.type === type);
+      return p ? p.value : "";
+    };
+
+    const hour    = get("hour");
+    const minute  = get("minute");
+    const ampm    = get("dayPeriod");   // "AM" / "PM"
+    const tz      = get("timeZoneName"); // "EST" / "EDT"
+    const month   = get("month");
+    const day     = get("day");
+    const year    = get("year");
+
+    return `${hour}:${minute} ${ampm} ${tz} ${month}/${day}/${year}`;
   }
 
   // ── State ─────────────────────────────────────────────────────────────────
