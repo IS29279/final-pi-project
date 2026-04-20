@@ -501,7 +501,7 @@
       display: grid;
       grid-template-columns: 2fr 1fr 1fr auto;
       gap: 1.25rem;
-      align-items: end;   /* ← was: align-items: start, changed to make sure that buttons align vertically. */
+      align-items: end;
     }
 
     .form-group label {
@@ -1127,7 +1127,7 @@
           </div>
           <div class="form-group">
             <label for="duration">tshark capture window (s)</label>
-            <input type="number" id="duration" name="duration" value="30" min="5" max="300"
+            <input type="number" id="duration" name="duration" value="30" min="5" max="300">
           </div>
           <div class="form-group">
             <label for="interface">Interface</label>
@@ -1139,7 +1139,7 @@
             <button type="button" class="btn-stop" id="stop-btn" onclick="stopScan()">Stop</button>
           </div>
         </div>
-        <div class="form-helper"> <style="margin-top: 0.5rem;">
+        <div class="form-helper" style="margin-top: 0.5rem;">
             How long tshark records traffic. Total scan time will be longer —
             nmap host discovery and service scan run first and their duration
             depends on network conditions.
