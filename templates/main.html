@@ -648,7 +648,7 @@
 
     .active-scan-meta {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       gap: 1rem;
       margin-bottom: 1.5rem;
     }
@@ -665,6 +665,14 @@
     .meta-block span {
       font-size: 0.88rem;
       color: var(--text-primary);
+    }
+
+    .meta-block .est-note {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      font-style: italic;
+      margin-top: 0.15rem;
+      display: block;
     }
 
     /* ── Live status panel (replaces the old phased progress bars) ──
@@ -750,6 +758,42 @@
       color: var(--text-muted);
       margin-top: 0.35rem;
       line-height: 1.4;
+    }
+
+    /* ── "Taking longer than expected" banner ──
+       Appears below the live-status when elapsed time exceeds the estimated
+       total by more than 30 seconds. Amber so it reads as a heads-up, not
+       an error. Hidden by default; shown by adding .visible. */
+    .slow-banner {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.85rem 1.1rem;
+      background: rgba(227,179,65,0.08);
+      border: 1px solid rgba(227,179,65,0.35);
+      border-left: 3px solid var(--amber);
+      border-radius: 5px;
+      color: var(--text-primary);
+      font-size: 0.82rem;
+      line-height: 1.45;
+      animation: fadeUp 0.3s ease both;
+    }
+    .slow-banner.visible { display: block; }
+    .slow-banner strong {
+      font-family: var(--font-display);
+      color: var(--amber);
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      margin-right: 0.35rem;
+    }
+    .slow-banner .icon-bolt {
+      margin-right: 0.4rem;
+      color: var(--amber);
+    }
+    .slow-banner small {
+      display: block;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: 0.3rem;
     }
 
     /* ── Two column layout for lower panels ── */
@@ -1127,6 +1171,11 @@
           <label>tshark window</label>
           <span id="active-duration">—</span>
         </div>
+        <div class="meta-block">
+          <label>Est. total time</label>
+          <span id="active-estimate">—</span>
+          <span class="est-note">approx. — varies by network</span>
+        </div>
       </div>
 
       <!-- Honest live status: elapsed time + current phase, no fake percentages -->
@@ -1145,6 +1194,16 @@
             Initializing scan pipeline.
           </div>
         </div>
+      </div>
+
+      <!-- Shown when elapsed time exceeds the estimate by more than 30s -->
+      <div class="slow-banner" id="slow-banner">
+        <span class="icon-bolt">&#9888;</span>
+        <strong>Scan is taking longer than expected.</strong>
+        Please wait — this usually means nmap is scanning a busy network, a
+        slow host, or a large number of open ports. The scan will complete on
+        its own; no action is needed. Use the Stop button if you need to abort.
+        <small id="slow-banner-detail">Expected ~0s, now at 0s elapsed.</small>
       </div>
     </div>
 
@@ -1244,6 +1303,25 @@
   </main>
 
 <script>
+  // ── Scan phase timing estimates ───────────────────────────────────────────
+  // These are educated guesses that drive the phase estimator and the total-
+  // time estimate shown in the active scan panel. Real runtimes depend on the
+  // network, so these are rough. Tune the numbers here if scans on your
+  // typical network routinely come in faster or slower.
+  const NMAP_DISCOVERY_EST = 10;   // seconds
+  const NMAP_SERVICE_EST   = 25;   // seconds
+  const REPORT_EST         = 5;    // seconds for analysis + report generation
+
+  // How many seconds past the estimated total before we show the "taking
+  // longer than expected" banner. 30s picked to be big enough not to fire
+  // on minor network variation, small enough to reassure users who think
+  // the scan is hung.
+  const SLOW_THRESHOLD_SEC = 30;
+
+  function totalEstimateSec(tsharkDuration) {
+    return NMAP_DISCOVERY_EST + NMAP_SERVICE_EST + tsharkDuration + REPORT_EST;
+  }
+
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Format a unix timestamp as "H:MM AM/PM EST|EDT MM/DD/YYYY" in the
   // America/New_York zone. Uses Intl.DateTimeFormat so DST is handled
@@ -1301,19 +1379,12 @@
 
   // ── Phase estimator ───────────────────────────────────────────────────────
   // We can't read the Pi's real phase state from the browser, so we estimate
-  // which phase the scan is in based on elapsed time. Rough model:
-  //   0-10s    : Nmap host discovery
-  //   10s - X  : Nmap service scan (depends on host count; budget ~25s)
-  //   X - X+D  : tshark capture (D = user's duration)
-  //   X+D+     : Report generation
+  // which phase the scan is in based on elapsed time. Same timing constants
+  // as the total-estimate calculation above.
   function phaseFor(elapsedSec, tsharkDuration) {
-    const nmapDiscoveryEst = 10;
-    const nmapServiceEst   = 25;
-    const captureEst       = tsharkDuration;
-
-    const tDiscovery = nmapDiscoveryEst;
-    const tService   = tDiscovery + nmapServiceEst;
-    const tCapture   = tService + captureEst;
+    const tDiscovery = NMAP_DISCOVERY_EST;
+    const tService   = tDiscovery + NMAP_SERVICE_EST;
+    const tCapture   = tService + tsharkDuration;
 
     if (elapsedSec < tDiscovery) {
       return {
@@ -1347,6 +1418,8 @@
     document.getElementById("phase-pulse").classList.add("complete");
     document.getElementById("phase-name").textContent    = "Complete";
     document.getElementById("phase-detail").textContent  = "Scan finished. Click through to the history or report page for details.";
+    // Hide the slow banner on completion — the scan finished, no need to warn
+    document.getElementById("slow-banner").classList.remove("visible");
     document.getElementById("status-dot").classList.remove("scanning");
     document.getElementById("status-label").textContent = "System ready";
     document.getElementById("scan-btn").disabled = false;
@@ -1459,18 +1532,24 @@
           document.getElementById("hosts-feed").innerHTML  = '<div class="panel-empty">Discovering hosts...</div>';
           document.getElementById("alerts-feed").innerHTML = '<div class="panel-empty">Monitoring traffic...</div>';
 
+          const estTotal = totalEstimateSec(pendingDuration);
+
           const scanNum = total;
           document.getElementById("active-scan-label").textContent = "Scan #" + scanNum;
           document.getElementById("active-target").textContent     = running.target_cidr || "—";
           document.getElementById("active-started").textContent    = formatEST(running.started_at);
           document.getElementById("active-interface").textContent  = document.getElementById("interface").value || "wlan0";
           document.getElementById("active-duration").textContent   = pendingDuration + "s";
+          document.getElementById("active-estimate").textContent   = "~" + estTotal + "s";
 
           // Reset live status display for the new scan
           document.getElementById("active-elapsed").textContent = "0:00";
           document.getElementById("phase-pulse").classList.remove("complete");
           document.getElementById("phase-name").textContent    = "Starting scan...";
           document.getElementById("phase-detail").textContent  = "Initializing scan pipeline.";
+
+          // Banner starts hidden — will show once elapsed > estimate + threshold
+          document.getElementById("slow-banner").classList.remove("visible");
 
           document.getElementById("active-panel").classList.add("visible");
           document.getElementById("status-dot").classList.add("scanning");
@@ -1487,6 +1566,16 @@
             const phase = phaseFor(elapsed, pendingDuration);
             document.getElementById("phase-name").textContent   = phase.name;
             document.getElementById("phase-detail").textContent = phase.detail;
+
+            // Show the "taking longer than expected" banner if we've gone
+            // more than SLOW_THRESHOLD_SEC past the estimated total.
+            const banner       = document.getElementById("slow-banner");
+            const bannerDetail = document.getElementById("slow-banner-detail");
+            if (elapsed > estTotal + SLOW_THRESHOLD_SEC) {
+              banner.classList.add("visible");
+              bannerDetail.textContent =
+                `Estimated ~${estTotal}s, now at ${formatElapsed(elapsed)} elapsed.`;
+            }
           }, 1000);
         }
 
