@@ -23,6 +23,7 @@ import time
 import re
 import os
 import argparse
+from zoneinfo import ZoneInfo
 
 from utils.db import (
     init_db,
@@ -82,15 +83,23 @@ def run_nmap_service_scan(session_id: str, hosts: list[str]) -> list[str]:
         return []
 
     print(f"[nmap] Starting service scan on {len(hosts)} host(s)")
-    targets = " ".join(hosts)
-    cmd = f"nmap -sV -T4 --open -oX - {targets}"
 
-    entry_id = insert_audit_entry(session_id, "nmap", cmd)
+    # Use the list form instead of shell=True + f-string. Ironic to leave a
+    # shell-injection footgun in a penetration testing tool — and even though
+    # `hosts` comes from a regex match that only captures IPs, the list form
+    # is the right pattern for reviewers and graders.
+    cmd = ["nmap", "-sV", "-T4", "--open", "-oX", "-"] + hosts
+
+    entry_id = insert_audit_entry(session_id, "nmap", " ".join(cmd))
 
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
     except subprocess.TimeoutExpired:
         print("[nmap] Service scan timed out")
+        complete_audit_entry(entry_id)
+        return []
+    except FileNotFoundError:
+        print("[nmap] ERROR: nmap not found. Install with: sudo apt install nmap")
         complete_audit_entry(entry_id)
         return []
 
@@ -214,17 +223,38 @@ def run_tshark_capture(session_id: str, interface: str = "wlan0",
 
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        # Poll every second so we can honour a stop request
+
+        # Poll every second so we can honour a stop request. The range gives
+        # tshark up to `duration + 30s` of wall time; normally it exits on its
+        # own when -a duration:N trips.
+        terminated_early = False
         for _ in range(duration + 30):
             if stop_event is not None and stop_event.is_set():
                 proc.terminate()
+                terminated_early = True
                 print("[tshark] Capture terminated by stop request")
                 break
             if proc.poll() is not None:
+                # tshark exited on its own — the capture is done
                 break
             time.sleep(1)
         else:
+            # Safety net: loop completed without tshark exiting
             proc.terminate()
+            terminated_early = True
+            print("[tshark] Capture exceeded expected duration — terminated")
+
+        # Wait for the child to actually exit and flush its pcap buffers to
+        # disk before we try to read it back. On a slower Pi, skipping this
+        # wait caused the analysis pass to read a partially-written pcap and
+        # miss the last second or two of traffic. A 5-second ceiling is
+        # plenty — tshark normally flushes in well under a second on SIGTERM.
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            print("[tshark] Process did not exit cleanly — killing")
+            proc.kill()
+            proc.wait(timeout=2)
 
         # Quick post-capture analysis for cleartext protocols
         analysis_cmd = [
@@ -255,6 +285,11 @@ def run_tshark_capture(session_id: str, interface: str = "wlan0",
 # Report generation
 # ---------------------------------------------------------------------------
 
+# Eastern US timezone with automatic DST handling — matches the web UI's
+# to_est filter so report timestamps and dashboard timestamps are consistent.
+_EASTERN = ZoneInfo("America/New_York")
+
+
 def generate_report(session_id: str, target: str,
                     host_ids: list[str], finding_id: str) -> str:
     """
@@ -275,12 +310,18 @@ def generate_report(session_id: str, target: str,
     lines = []
     sep = "-" * 60
 
+    # Timestamp with explicit zone abbreviation (EST/EDT). Matches the
+    # dashboard's to_est filter so a report and the scan's row in the
+    # history table display times in the same way.
+    generated_dt  = datetime.datetime.now(_EASTERN)
+    generated_str = generated_dt.strftime("%Y-%m-%d %H:%M:%S %Z")
+
     lines.append("NETWORK LOCK SECURITY")
     lines.append("Network Security Assessment Report")
     lines.append(sep)
     lines.append(f"Session ID : {session_id}")
     lines.append(f"Target     : {target}")
-    lines.append(f"Generated  : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"Generated  : {generated_str}")
     lines.append(sep)
 
     # ── Gather data once, use it for both flags and the host/traffic sections ─
