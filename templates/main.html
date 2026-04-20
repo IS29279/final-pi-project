@@ -538,6 +538,7 @@
       margin-top: 0.35rem;
       line-height: 1.4;
       letter-spacing: 0.02em;
+      max-width: 160px;  
     }
 
     .btn-scan {
@@ -1126,12 +1127,7 @@
           </div>
           <div class="form-group">
             <label for="duration">tshark capture window (s)</label>
-            <input type="number" id="duration" name="duration" value="30" min="5" max="300">
-            <div class="form-helper">
-              How long tshark records traffic. Total scan time will be longer —
-              nmap host discovery and service scan run first and their duration
-              depends on network conditions.
-            </div>
+            <input type="number" id="duration" name="duration" value="30" min="5" max="300"
           </div>
           <div class="form-group">
             <label for="interface">Interface</label>
@@ -1142,6 +1138,11 @@
             <button type="submit" class="btn-scan" id="scan-btn">Run Scan</button></div>
             <button type="button" class="btn-stop" id="stop-btn" onclick="stopScan()">Stop</button>
           </div>
+        </div>
+        <div class="form-helper">
+            How long tshark records traffic. Total scan time will be longer —
+            nmap host discovery and service scan run first and their duration
+            depends on network conditions.
         </div>
       </form>
     </div>
