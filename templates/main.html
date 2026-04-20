@@ -501,7 +501,7 @@
       display: grid;
       grid-template-columns: 2fr 1fr 1fr auto;
       gap: 1.25rem;
-      align-items: end;
+      align-items: start;
     }
 
     .form-group label {
@@ -529,6 +529,15 @@
       outline: none;
       border-color: var(--blue);
       box-shadow: 0 0 0 3px rgba(88,166,255,0.1);
+    }
+
+    /* Helper text under form inputs — explains the tshark-only caveat */
+    .form-helper {
+      font-size: 0.64rem;
+      color: var(--text-dim);
+      margin-top: 0.35rem;
+      line-height: 1.4;
+      letter-spacing: 0.02em;
     }
 
     .btn-scan {
@@ -658,70 +667,89 @@
       color: var(--text-primary);
     }
 
-    /* ── Progress bars ── */
-    .phases {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-
-    .phase-block label {
+    /* ── Live status panel (replaces the old phased progress bars) ──
+       Instead of guessing at percentages we can't really measure, we show
+       real elapsed time plus the current phase estimate. No fake progress. */
+    .live-status {
       display: flex;
-      justify-content: space-between;
-      font-size: 0.68rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text-muted);
-      margin-bottom: 0.4rem;
+      align-items: center;
+      gap: 1.25rem;
+      padding: 1rem 1.25rem;
+      background: rgba(88,166,255,0.05);
+      border: 1px solid rgba(88,166,255,0.15);
+      border-radius: 6px;
     }
 
-    .phase-block label span {
+    .elapsed-display {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      font-weight: 700;
       color: var(--blue);
-      font-weight: 600;
-    }
-
-    .progress-track {
-      height: 6px;
-      background: var(--bg-raised);
-      border-radius: 3px;
-      overflow: hidden;
-      border: 1px solid var(--border-dim);
-    }
-
-    .progress-fill {
-      height: 100%;
-      border-radius: 3px;
-      background: linear-gradient(90deg, var(--blue), #79c0ff);
-      transition: width 0.6s ease;
-      position: relative;
-    }
-
-    .progress-fill.complete {
-      background: linear-gradient(90deg, var(--green), #7ee787);
-    }
-
-    .progress-fill::after {
-      content: '';
-      position: absolute;
-      top: 0; right: 0;
-      width: 20px; height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
-      animation: shimmer 1.2s ease-in-out infinite;
-    }
-
-    .progress-fill.complete::after { display: none; }
-
-    @keyframes shimmer {
-      0%   { opacity: 0; }
-      50%  { opacity: 1; }
-      100% { opacity: 0; }
-    }
-
-    .phase-status {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      margin-top: 0.3rem;
       letter-spacing: 0.04em;
+      line-height: 1;
+      min-width: 120px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .elapsed-label {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.6rem;
+      font-weight: 400;
+      color: var(--text-dim);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+      text-align: center;
+    }
+
+    .phase-info {
+      flex: 1;
+      border-left: 1px solid var(--border-dim);
+      padding-left: 1.25rem;
+    }
+
+    .phase-label {
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+
+    .phase-current {
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    /* Pulsing dot next to the current phase label */
+    .phase-pulse {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--amber);
+      box-shadow: 0 0 8px var(--amber);
+      animation: pulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+
+    .phase-pulse.complete {
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: none;
+    }
+
+    .phase-detail {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 0.35rem;
+      line-height: 1.4;
     }
 
     /* ── Two column layout for lower panels ── */
@@ -960,7 +988,8 @@
       .lower-grid { grid-template-columns: 1fr; }
       .stats-row { grid-template-columns: 1fr 1fr; }
       .active-scan-meta { grid-template-columns: 1fr 1fr; }
-      .phases { grid-template-columns: 1fr; }
+      .live-status { flex-direction: column; align-items: stretch; gap: 0.75rem; }
+      .phase-info { border-left: none; border-top: 1px solid var(--border-dim); padding-left: 0; padding-top: 0.75rem; }
     }
   </style>
 </head>
@@ -1052,14 +1081,19 @@
             <input type="text" id="target" name="target" value="192.168.1.0/24" required>
           </div>
           <div class="form-group">
-            <label for="duration">Capture (seconds)</label>
+            <label for="duration">tshark capture window (s)</label>
             <input type="number" id="duration" name="duration" value="30" min="5" max="300">
+            <div class="form-helper">
+              How long tshark records traffic. Total scan time will be longer —
+              nmap host discovery and service scan run first and their duration
+              depends on network conditions.
+            </div>
           </div>
           <div class="form-group">
             <label for="interface">Interface</label>
             <input type="text" id="interface" name="interface" value="wlan0">
           </div>
-          <div class="form-group" style="display:flex; gap:0.6rem; align-items:flex-end;">
+          <div class="form-group" style="display:flex; gap:0.6rem; align-items:flex-start;">
             <div><label>&nbsp;</label>
             <button type="submit" class="btn-scan" id="scan-btn">Run Scan</button></div>
             <button type="button" class="btn-stop" id="stop-btn" onclick="stopScan()">Stop</button>
@@ -1075,7 +1109,6 @@
           <span id="active-scan-label">Scan #1</span>
           <span class="scanning-badge" id="active-badge">Scanning</span>
         </div>
-        <span style="font-size:0.72rem; color:var(--text-dim)" id="active-elapsed">0s elapsed</span>
       </div>
       <div class="active-scan-meta">
         <div class="meta-block">
@@ -1091,24 +1124,26 @@
           <span id="active-interface">—</span>
         </div>
         <div class="meta-block">
-          <label>Capture duration</label>
+          <label>tshark window</label>
           <span id="active-duration">—</span>
         </div>
       </div>
-      <div class="phases">
-        <div class="phase-block">
-          <label>Host Discovery (Nmap) <span id="nmap-pct">0%</span></label>
-          <div class="progress-track">
-            <div class="progress-fill" id="nmap-bar" style="width:0%"></div>
-          </div>
-          <div class="phase-status" id="nmap-status">Waiting...</div>
+
+      <!-- Honest live status: elapsed time + current phase, no fake percentages -->
+      <div class="live-status">
+        <div>
+          <div class="elapsed-display" id="active-elapsed">0:00</div>
+          <span class="elapsed-label">Elapsed</span>
         </div>
-        <div class="phase-block">
-          <label>Traffic Capture (tshark) <span id="tshark-pct">0%</span></label>
-          <div class="progress-track">
-            <div class="progress-fill" id="tshark-bar" style="width:0%"></div>
+        <div class="phase-info">
+          <div class="phase-label">Current phase</div>
+          <div class="phase-current">
+            <span class="phase-pulse" id="phase-pulse"></span>
+            <span id="phase-name">Starting scan...</span>
           </div>
-          <div class="phase-status" id="tshark-status">Waiting for discovery...</div>
+          <div class="phase-detail" id="phase-detail">
+            Initializing scan pipeline.
+          </div>
         </div>
       </div>
     </div>
@@ -1212,7 +1247,7 @@
   // ── Helpers ───────────────────────────────────────────────────────────────
   // Format a unix timestamp as "H:MM AM/PM EST|EDT MM/DD/YYYY" in the
   // America/New_York zone. Uses Intl.DateTimeFormat so DST is handled
-  // automatically — no hardcoded offset, no DST bugs in April/November.
+  // automatically.
   function formatEST(unix) {
     if (!unix) return "—";
     const d = new Date(unix * 1000);
@@ -1232,15 +1267,17 @@
       return p ? p.value : "";
     };
 
-    const hour    = get("hour");
-    const minute  = get("minute");
-    const ampm    = get("dayPeriod");   // "AM" / "PM"
-    const tz      = get("timeZoneName"); // "EST" / "EDT"
-    const month   = get("month");
-    const day     = get("day");
-    const year    = get("year");
+    return `${get("hour")}:${get("minute")} ${get("dayPeriod")} ${get("timeZoneName")} ${get("month")}/${get("day")}/${get("year")}`;
+  }
 
-    return `${hour}:${minute} ${ampm} ${tz} ${month}/${day}/${year}`;
+  // Format elapsed seconds as M:SS (or H:MM:SS for long scans)
+  function formatElapsed(totalSeconds) {
+    const s = totalSeconds % 60;
+    const m = Math.floor(totalSeconds / 60) % 60;
+    const h = Math.floor(totalSeconds / 3600);
+    const pad = (n) => String(n).padStart(2, "0");
+    if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
+    return `${m}:${pad(s)}`;
   }
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -1251,11 +1288,8 @@
   let issueCount     = 0;
   let totalScans     = {{ scans | length }};
 
-  // Capture the duration the user entered at submit time so the polling loop
-  // can display it and size the progress simulation correctly. The backend
-  // doesn't persist duration in scan_sessions, so we hold onto it client-side.
-  // Default matches the form's default value in case someone hasn't clicked
-  // Run Scan in this session (e.g. they refreshed mid-scan).
+  // Captured at form submit so the active scan panel can display the real
+  // value the user typed, rather than a hardcoded "30s".
   let pendingDuration = 30;
 
   document.getElementById("scan-form").addEventListener("submit", function() {
@@ -1265,54 +1299,54 @@
     }
   });
 
-  // ── Progress simulation ───────────────────────────────────────────────────
-  // We don't have a real-time progress feed from the Pi, so we simulate
-  // progress based on elapsed time vs the configured duration.
-  // Nmap gets the first 40% of total time, tshark gets the rest.
-  function updateProgress(elapsedSec, totalDuration) {
-    const nmapEstimate    = totalDuration * 0.4;
-    const tsharkEstimate  = totalDuration * 0.6;
+  // ── Phase estimator ───────────────────────────────────────────────────────
+  // We can't read the Pi's real phase state from the browser, so we estimate
+  // which phase the scan is in based on elapsed time. Rough model:
+  //   0-10s    : Nmap host discovery
+  //   10s - X  : Nmap service scan (depends on host count; budget ~25s)
+  //   X - X+D  : tshark capture (D = user's duration)
+  //   X+D+     : Report generation
+  function phaseFor(elapsedSec, tsharkDuration) {
+    const nmapDiscoveryEst = 10;
+    const nmapServiceEst   = 25;
+    const captureEst       = tsharkDuration;
 
-    let nmapPct, tsharkPct, nmapStatus, tsharkStatus;
+    const tDiscovery = nmapDiscoveryEst;
+    const tService   = tDiscovery + nmapServiceEst;
+    const tCapture   = tService + captureEst;
 
-    if (elapsedSec <= nmapEstimate) {
-      nmapPct     = Math.min(99, Math.round((elapsedSec / nmapEstimate) * 100));
-      tsharkPct   = 0;
-      nmapStatus   = "Discovering hosts and scanning ports...";
-      tsharkStatus = "Waiting for discovery to complete...";
+    if (elapsedSec < tDiscovery) {
+      return {
+        name:   "Host discovery (Nmap)",
+        detail: "Pinging subnet to find live hosts."
+      };
+    } else if (elapsedSec < tService) {
+      return {
+        name:   "Service scan (Nmap)",
+        detail: "Fingerprinting open ports and service versions on live hosts."
+      };
+    } else if (elapsedSec < tCapture) {
+      const remaining = Math.max(0, tCapture - elapsedSec);
+      return {
+        name:   "Traffic capture (tshark)",
+        detail: `Recording network traffic. ~${remaining}s remaining in capture window.`
+      };
     } else {
-      nmapPct      = 100;
-      const tElapsed = elapsedSec - nmapEstimate;
-      tsharkPct    = Math.min(99, Math.round((tElapsed / tsharkEstimate) * 100));
-      nmapStatus   = "Complete";
-      tsharkStatus = "Capturing network traffic...";
-    }
-
-    document.getElementById("nmap-bar").style.width   = nmapPct + "%";
-    document.getElementById("tshark-bar").style.width = tsharkPct + "%";
-    document.getElementById("nmap-pct").textContent   = nmapPct + "%";
-    document.getElementById("tshark-pct").textContent = tsharkPct + "%";
-    document.getElementById("nmap-status").textContent   = nmapStatus;
-    document.getElementById("tshark-status").textContent = tsharkStatus;
-
-    if (nmapPct === 100) {
-      document.getElementById("nmap-bar").classList.add("complete");
+      return {
+        name:   "Generating report",
+        detail: "Analyzing captured packets and writing the report file."
+      };
     }
   }
 
   function markScanComplete() {
-    document.getElementById("nmap-bar").style.width    = "100%";
-    document.getElementById("tshark-bar").style.width  = "100%";
-    document.getElementById("nmap-pct").textContent    = "100%";
-    document.getElementById("tshark-pct").textContent  = "100%";
-    document.getElementById("nmap-bar").classList.add("complete");
-    document.getElementById("tshark-bar").classList.add("complete");
-    document.getElementById("nmap-status").textContent    = "Complete";
-    document.getElementById("tshark-status").textContent  = "Complete";
     document.getElementById("active-badge").textContent   = "Complete";
     document.getElementById("active-badge").style.color   = "var(--green)";
     document.getElementById("active-badge").style.background = "rgba(86,211,100,0.1)";
     document.getElementById("active-badge").style.borderColor = "rgba(86,211,100,0.3)";
+    document.getElementById("phase-pulse").classList.add("complete");
+    document.getElementById("phase-name").textContent    = "Complete";
+    document.getElementById("phase-detail").textContent  = "Scan finished. Click through to the history or report page for details.";
     document.getElementById("status-dot").classList.remove("scanning");
     document.getElementById("status-label").textContent = "System ready";
     document.getElementById("scan-btn").disabled = false;
@@ -1431,6 +1465,13 @@
           document.getElementById("active-started").textContent    = formatEST(running.started_at);
           document.getElementById("active-interface").textContent  = document.getElementById("interface").value || "wlan0";
           document.getElementById("active-duration").textContent   = pendingDuration + "s";
+
+          // Reset live status display for the new scan
+          document.getElementById("active-elapsed").textContent = "0:00";
+          document.getElementById("phase-pulse").classList.remove("complete");
+          document.getElementById("phase-name").textContent    = "Starting scan...";
+          document.getElementById("phase-detail").textContent  = "Initializing scan pipeline.";
+
           document.getElementById("active-panel").classList.add("visible");
           document.getElementById("status-dot").classList.add("scanning");
           document.getElementById("status-label").textContent = "Scan in progress";
@@ -1439,15 +1480,13 @@
           document.body.classList.add("scanning-active");
 
           if (elapsedTimer) clearInterval(elapsedTimer);
-          // Progress simulation total = nmap discovery overhead (~20s) + tshark
-          // capture window. This keeps the progress bar honest for longer
-          // captures instead of always hitting "Complete" at 60s regardless
-          // of what the user entered.
-          const estimatedTotal = pendingDuration + 20;
           elapsedTimer = setInterval(() => {
             const elapsed = Math.floor(Date.now()/1000 - scanStartTs);
-            document.getElementById("active-elapsed").textContent = elapsed + "s elapsed";
-            updateProgress(elapsed, estimatedTotal);
+            document.getElementById("active-elapsed").textContent = formatElapsed(elapsed);
+
+            const phase = phaseFor(elapsed, pendingDuration);
+            document.getElementById("phase-name").textContent   = phase.name;
+            document.getElementById("phase-detail").textContent = phase.detail;
           }, 1000);
         }
 
@@ -1495,12 +1534,6 @@
     if (suggestedSubnet) {
       document.getElementById("target").value = suggestedSubnet;
     }
-  }
-
-  function colorClass(pct) {
-    if (pct >= 90) return "danger";
-    if (pct >= 70) return "mem";
-    return null;
   }
 
   function pollSystem() {
