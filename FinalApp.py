@@ -20,6 +20,7 @@ All routes other than /login require a valid session.
 import functools
 import threading
 import datetime
+from zoneinfo import ZoneInfo
 from collections import Counter
 from flask import (Flask, render_template, request, redirect, url_for,
                    jsonify, abort, send_file, Response, session, flash)
@@ -330,13 +331,18 @@ def create_app():
     with app.app_context():
         init_db()
 
+    # Eastern US timezone with automatic DST handling. Uses America/New_York
+    # (not "US/Eastern", which is a deprecated alias) so the label flips
+    # between EST and EDT on the correct dates without any manual math.
+    _EASTERN = ZoneInfo("America/New_York")
+
     @app.template_filter("to_est")
     def to_est(unix_ts):
         if not unix_ts:
             return "—"
-        utc = datetime.datetime.utcfromtimestamp(int(unix_ts))
-        est = utc - datetime.timedelta(hours=5)
-        return est.strftime("%-I:%M %p EST %m/%d/%Y")
+        dt = datetime.datetime.fromtimestamp(int(unix_ts), tz=_EASTERN)
+        tz_abbr = dt.strftime("%Z")  # "EST" in winter, "EDT" in summer
+        return dt.strftime(f"%-I:%M %p {tz_abbr} %m/%d/%Y")
 
     register_routes(app)
     return app
