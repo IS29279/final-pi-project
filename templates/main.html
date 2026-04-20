@@ -1251,6 +1251,20 @@
   let issueCount     = 0;
   let totalScans     = {{ scans | length }};
 
+  // Capture the duration the user entered at submit time so the polling loop
+  // can display it and size the progress simulation correctly. The backend
+  // doesn't persist duration in scan_sessions, so we hold onto it client-side.
+  // Default matches the form's default value in case someone hasn't clicked
+  // Run Scan in this session (e.g. they refreshed mid-scan).
+  let pendingDuration = 30;
+
+  document.getElementById("scan-form").addEventListener("submit", function() {
+    const val = parseInt(document.getElementById("duration").value, 10);
+    if (!isNaN(val) && val > 0) {
+      pendingDuration = val;
+    }
+  });
+
   // ── Progress simulation ───────────────────────────────────────────────────
   // We don't have a real-time progress feed from the Pi, so we simulate
   // progress based on elapsed time vs the configured duration.
@@ -1415,8 +1429,8 @@
           document.getElementById("active-scan-label").textContent = "Scan #" + scanNum;
           document.getElementById("active-target").textContent     = running.target_cidr || "—";
           document.getElementById("active-started").textContent    = formatEST(running.started_at);
-          document.getElementById("active-interface").textContent  = "wlan0";
-          document.getElementById("active-duration").textContent   = "30s";
+          document.getElementById("active-interface").textContent  = document.getElementById("interface").value || "wlan0";
+          document.getElementById("active-duration").textContent   = pendingDuration + "s";
           document.getElementById("active-panel").classList.add("visible");
           document.getElementById("status-dot").classList.add("scanning");
           document.getElementById("status-label").textContent = "Scan in progress";
@@ -1425,10 +1439,15 @@
           document.body.classList.add("scanning-active");
 
           if (elapsedTimer) clearInterval(elapsedTimer);
+          // Progress simulation total = nmap discovery overhead (~20s) + tshark
+          // capture window. This keeps the progress bar honest for longer
+          // captures instead of always hitting "Complete" at 60s regardless
+          // of what the user entered.
+          const estimatedTotal = pendingDuration + 20;
           elapsedTimer = setInterval(() => {
             const elapsed = Math.floor(Date.now()/1000 - scanStartTs);
             document.getElementById("active-elapsed").textContent = elapsed + "s elapsed";
-            updateProgress(elapsed, 60);
+            updateProgress(elapsed, estimatedTotal);
           }, 1000);
         }
 
